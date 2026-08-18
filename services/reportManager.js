@@ -212,9 +212,8 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
     console.log(`[LAPORAN BULANAN] Memproses laporan penjualan ${monthName} ${year}...`);
 
     const transactions = await fetchMonthlyTransactions(year, month);
-    const { buffer, totalTransactions, totalRevenue } = await generateExcelBuffer(year, month, transactions);
-
-    const fileName = `Laporan_Penjualan_BebeyStore_${monthName}_${year}.xlsx`;
+    const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase();
+    const fileName = `${monthTitle}-${year}.xlsx`;
     const attachment = new AttachmentBuilder(buffer, { name: fileName });
 
     const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
