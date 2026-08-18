@@ -243,6 +243,8 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 	}
 }
 
+const { setupMonthlyReportScheduler } = require('./services/reportManager');
+
 client.once(Events.ClientReady, c => {
 	console.log(`Ready! Logged in as ${c.user.tag}`);
 	console.log('🤖 Bebey Store Payment Bot Aktif!');
@@ -252,6 +254,9 @@ client.once(Events.ClientReady, c => {
 
 	// Cek tiket kadaluarsa saat bot pertama kali nyala
 	checkAndCleanupExpiredTickets(c);
+
+	// Inisialisasi scheduler laporan bulanan otomatis ke channel laporan/owner
+	setupMonthlyReportScheduler(c);
 
 	// Jalankan pembersihan otomatis setiap 15 menit sekali
 	setInterval(() => {

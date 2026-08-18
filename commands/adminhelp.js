@@ -20,7 +20,8 @@ module.exports = {
 			`• **\`/additem\`** \`<id> <nama> <harga> <username> [emoji] [deskripsi] [kategori]\` — Menambah item baru ke katalog toko.\n` +
 			`• **\`/delitem\`** \`<item>\` — Menghapus item spesifik dari katalog toko.\n` +
 			`• **\`/delcategory\`** \`<kategori>\` — Menghapus seluruh kategori beserta item di dalamnya dari katalog toko.\n` +
-			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk (Live Update ke Panel).\n\n`;
+			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk (Live Update ke Panel).\n` +
+			`• **\`/exportreport\`** \`[bulan] [tahun]\` — Mengunduh rekapitulasi laporan penjualan resmi format Excel (.xlsx).\n\n`;
 
 		if (userIsOwner) {
 			adminDescription += 
