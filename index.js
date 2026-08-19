@@ -1107,13 +1107,33 @@ client.on(Events.InteractionCreate, async interaction => {
 			return;
 		}
 
-		// AE. Tombol "❌ Cek Dulu"
+		// AE. Tombol "🔄 Cek Dulu Deh"
 		if (interaction.customId.startsWith('check_again_')) {
+			const orderId = interaction.customId.replace('check_again_', '');
+
+			const guideEmbed = new EmbedBuilder()
+				.setTitle('📖  PANDUAN CEK LIMIT AKUN ROBLOX')
+				.setColor(0x5865F2)
+				.setDescription(
+					`ℹ️ **SILAKAN CEK AKUN KAMU DULU!**\n\n` +
+					`Berikut langkah-langkah mudah untuk mengecek limit akun Roblox kamu:\n\n` +
+					`1️⃣ Buka browser dan login ke **roblox.com**.\n` +
+					`2️⃣ Masuk ke menu **Settings / Pengaturan** > **Privacy**.\n` +
+					`3️⃣ Cek apakah fitur penerimaan Robux kamu masih aktif atau dibatasi.\n` +
+					`4️⃣ Jika sisa limit akun aman, silakan kembali ke pesan di atas dan klik **"✅ Yakin, Lanjut Bayar"**!`
+				)
+				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
+
+			const guideBtn = new ButtonBuilder()
+				.setCustomId(`limit_guide_${orderId}`)
+				.setLabel('📖 Tutorial Cara Cek Limit')
+				.setStyle(ButtonStyle.Primary);
+
+			const row = new ActionRowBuilder().addComponents(guideBtn);
+
 			await interaction.reply({
-				content: 
-					`ℹ️ **SILAKAN CEK AKUN ANDA DULU!**\n` +
-					`> Silakan periksa kembali sisa limit akun Roblox Anda di **roblox.com**.\n` +
-					`> Jika sudah 100% yakin akun bebas limit, tekan tombol **"✅ Yakin, Lanjut Bayar"** di atas.`,
+				embeds: [guideEmbed],
+				components: [row],
 				flags: MessageFlags.Ephemeral
 			});
 			return;
