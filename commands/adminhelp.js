@@ -17,25 +17,27 @@ module.exports = {
 			`⚙️ **PERINTAH KELOLA TOKO & PRODUK:**\n` +
 			`• **\`/panel\`** — Mengirimkan Pesan Panel Katalog Toko di channel toko (misal #beli-disini).\n` +
 			`• **\`/leaderboard\`** — Mengirimkan Pesan Panel Live Leaderboard di channel terpisah (misal #leaderboard).\n` +
-			`• **\`/edititem\`** \`<item> [nama] [harga] [username] [kategori] [emoji] [deskripsi]\` — Mengubah detail item toko secara keseluruhan.\n` +
-			`• **\`/additem\`** \`<id> <nama> <harga> <username> [emoji] [deskripsi] [kategori]\` — Menambah item baru ke katalog toko.\n` +
+			`• **\`/additem\`** \`<id> <nama> <harga> <username> [catatan_tiket] [cek_limit] ...\` — Menambah item baru dengan opsi catatan tiket & Cek Limit.\n` +
+			`• **\`/edititem\`** \`<item> [nama] [harga] [username] [catatan_tiket] [cek_limit] ...\` — Mengubah detail item, catatan tiket, & Cek Limit.\n` +
 			`• **\`/delitem\`** \`<item>\` — Menghapus item spesifik dari katalog toko.\n` +
-			`• **\`/delcategory\`** \`<kategori>\` — Menghapus seluruh kategori beserta item di dalamnya dari katalog toko.\n` +
-			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk (Live Update ke Panel).\n` +
-			`• **\`/exportreport\`** \`[bulan] [tahun]\` — Mengunduh rekapitulasi laporan penjualan resmi format Excel (.xlsx).\n` +
+			`• **\`/delcategory\`** \`<kategori>\` — Menghapus seluruh kategori beserta item di dalamnya.\n` +
+			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk.\n` +
+			`• **\`/exportreport\`** \`[bulan] [tahun]\` — Mengunduh rekapitulasi laporan penjualan format Excel (.xlsx).\n` +
 			`• **\`/listadmin\`** — Menampilkan daftar Owner & Admin Sekunder yang terdaftar.\n\n`;
 
 		if (userIsOwner) {
 			adminDescription += 
 				`👑 **PERINTAH KHUSUS ADMIN UTAMA (OWNER):**\n` +
-				`• **\`/addadmin\`** \`<@user>\` — Mengangkat Admin Sekunder baru untuk membantu mengelola toko.\n` +
+				`• **\`/addadmin\`** \`<@user>\` — Mengangkat Admin Sekunder baru.\n` +
 				`• **\`/deladmin\`** \`<@user>\` — Mencabut hak akses Admin Sekunder.\n\n`;
 		}
 
 		adminDescription += 
-			`📌 **TIPS OPERASIONAL ADMIN:**\n` +
-			`• Gunakan channel khusus notifikasi pada \`ADMIN_CHANNEL_ID\` di file \`.env\` untuk menerima verifikasi bukti transfer.\n` +
-			`• Tekan tombol **"✅ Bantuan Selesai (Hapus Notif)"** di Admin Channel untuk membersihkan pesan notifikasi SOS/Tiket yang sudah diselesaikan.`;
+			`📌 **TIPS OPERASIONAL & CARA ACC TRANSAKSI:**\n` +
+			`1️⃣ Verifikasi bukti transfer pembeli di Admin Channel.\n` +
+			`2️⃣ Tekan tombol **"✅ Approve & Beri Item"**.\n` +
+			`3️⃣ **BALAS (REPLY)** pesan transaksi tersebut dengan meng-upload **foto screenshot bukti pengiriman item**.\n` +
+			`4️⃣ Bot akan otomatis mengirimkan foto bukti pengiriman tersebut ke tiket pembeli dan menghapus notifikasi Admin saat tiket ditutup!`;
 
 		const embed = new EmbedBuilder()
 			.setTitle('⚙️  BEBEY STORE — ADMIN CONTROL PANEL GUIDE')

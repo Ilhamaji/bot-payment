@@ -20,10 +20,11 @@ module.exports = {
 			`• 🏆 **Papan Peringkat (Leaderboard):** ${leaderboardMention}\n\n` +
 			`📌 **CARA MEMBELI PRODUK:**\n` +
 			`1️⃣ Pergi ke channel katalog toko di ${catalogMention}.\n` +
-			`2️⃣ Tekan tombol kategori produk yang Anda inginkan.\n` +
+			`2️⃣ Tekan tombol kategori produk yang kamu inginkan.\n` +
 			`3️⃣ Pilih produk pada menu dropdown privat yang muncul.\n` +
-			`4️⃣ Buka channel tiket privat yang otomatis dibuatkan oleh bot.\n` +
-			`5️⃣ Transfer sesuai nominal QRIS dan **upload screenshot bukti transfer** di channel tiket tersebut!`;
+			`4️⃣ Buka channel tiket privat, lalu konfirmasi data akun Roblox kamu.\n` +
+			`5️⃣ Pindai (scan) QRIS, **upload screenshot bukti transfer**, lalu tekan **"✅ Saya Sudah Transfer"** pada kartu konfirmasi yang muncul.\n` +
+			`6️⃣ Setelah produk dikirim oleh Admin, tekan **"✅ Selesai"** dan simpan struk transaksi ke DM lewat tombol **"📩 Simpan Bukti ke DM"**!`;
 
 		const embed = new EmbedBuilder()
 			.setTitle('📜  BEBEY STORE — PANDUAN BELANJA & INFORMASI TOKO')
