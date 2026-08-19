@@ -336,6 +336,9 @@ async function updateGlobalPanel(client) {
  * Membuat Sub-Menu Ringkas Khusus Balasan Ephemeral Tombol Kategori
  */
 function buildCategorySubMenuEphemeral(items, catName) {
+    const categories = getUniqueCategories(items);
+    const categoryRows = buildCategoryButtons(categories, catName);
+
     const filteredItems = catName === 'ALL' 
         ? items 
         : items.filter(i => (i.category || 'General').toLowerCase() === catName.toLowerCase());
@@ -372,7 +375,7 @@ function buildCategorySubMenuEphemeral(items, catName) {
 
     return {
         content: content,
-        components: [selectRow]
+        components: [...categoryRows, selectRow]
     };
 }
 
