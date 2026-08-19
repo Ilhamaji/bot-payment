@@ -304,7 +304,7 @@ function buildCategorySubMenuEphemeral(items, catName) {
 
     return {
         content: content,
-        components: [...categoryRows, selectRow]
+        components: [selectRow] // HANYA DROPDOWN MENU (Tanpa tombol kategori di balasan privat!)
     };
 }
 
