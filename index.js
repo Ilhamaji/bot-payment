@@ -420,6 +420,15 @@ client.on(Events.InteractionCreate, async interaction => {
 			if (selectedItem.requireUsername === false) {
 				// Tidak perlu username -> Langsung buat tiket
 				await createTicketChannel(interaction, selectedItem, 'Tidak Perlu');
+
+				// Hapus pesan privat sub-menu ephemeral pembeli setelah tiket dibuat
+				const prevInteraction = userEphemeralInteractions.get(interaction.user.id);
+				if (prevInteraction) {
+					try {
+						await prevInteraction.deleteReply();
+					} catch (e) {}
+					userEphemeralInteractions.delete(interaction.user.id);
+				}
 				return;
 			}
 
@@ -474,6 +483,15 @@ client.on(Events.InteractionCreate, async interaction => {
 			}
 
 			await createTicketChannel(interaction, selectedItem, robloxCheck.username);
+
+			// Hapus pesan privat sub-menu ephemeral pembeli setelah tiket dibuat
+			const prevInteraction = userEphemeralInteractions.get(interaction.user.id);
+			if (prevInteraction) {
+				try {
+					await prevInteraction.deleteReply();
+				} catch (e) {}
+				userEphemeralInteractions.delete(interaction.user.id);
+			}
 		}
 		return;
 	}
