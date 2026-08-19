@@ -39,6 +39,7 @@ const client = new Client({
         GatewayIntentBits.MessageContent
     ] 
 });
+const userEphemeralInteractions = new Map();
 client.commands = new Collection();
 
 // Load Commands
@@ -488,21 +489,35 @@ client.on(Events.InteractionCreate, async interaction => {
 			const { buildCategorySubMenuEphemeral } = require('./services/panelManager');
 
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
+			const userId = interaction.user.id;
 
-			// Jika pesan asal adalah pesan privat ephemeral user, update pesan tersebut (tanpa kirim pesan baru)
-			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
-				await interaction.update({
-					content: subMenuData.content,
-					components: subMenuData.components
-				});
-			} else {
-				// Jika pesan asal adalah panel toko publik, kirim balasan ephemeral privat baru
-				await interaction.reply({
-					content: subMenuData.content,
-					components: subMenuData.components,
-					flags: MessageFlags.Ephemeral
-				});
+			// Cek apakah user sudah memiliki pesan privat ephemeral yang aktif
+			const existingInteraction = userEphemeralInteractions.get(userId);
+
+			if (existingInteraction) {
+				try {
+					// Edit/update pesan privat yang sudah ada milik user tersebut
+					await existingInteraction.editReply({
+						content: subMenuData.content,
+						components: subMenuData.components
+					});
+					// Acknowledge tombol panel publik tanpa membuat pesan baru
+					await interaction.deferUpdate();
+					return;
+				} catch (err) {
+					// Jika pesan privat sebelumnya sudah ditutup/kadaluarsa, hapus dari map
+					userEphemeralInteractions.delete(userId);
+				}
 			}
+
+			// Jika belum ada pesan privat aktif, buat pesan privat baru & simpan ke map
+			await interaction.reply({
+				content: subMenuData.content,
+				components: subMenuData.components,
+				flags: MessageFlags.Ephemeral
+			});
+
+			userEphemeralInteractions.set(userId, interaction);
 			return;
 		}
 
