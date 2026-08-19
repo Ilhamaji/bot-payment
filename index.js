@@ -524,18 +524,26 @@ client.on(Events.InteractionCreate, async interaction => {
 
 	// 4. Handle Buttons (SOS, Close Ticket, Admin Approval, Category Sub-Menu Filter)
 	if (interaction.isButton()) {
+		// A0. Tombol Tutup Menu Privat
+		if (interaction.customId === 'close_ephemeral_menu') {
+			try {
+				await interaction.deleteReply();
+			} catch (e) {}
+			return;
+		}
+
 		// AA. Tombol Sub-Menu Filter Kategori Produk (/panel) - SUB-MENU RINGKAS PER-USER
 		if (interaction.customId.startsWith('cat_filter_')) {
-			const catName = interaction.customId.replace('cat_filter_', '');
+			let catName = interaction.customId.replace('cat_filter_', '');
+			if (catName === 'REFRESH') catName = 'ALL';
 			
 			delete require.cache[require.resolve('./config/items')];
 			const items = require('./config/items');
 			const { buildCategorySubMenuEphemeral } = require('./services/panelManager');
 
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
-			const userId = interaction.user.id;
 
-			// 1. Jika tombol ditekan langsung dari dalam balasan privat (Ephemeral) -> Update di tempat
+			// 1. Jika tombol ditekan dari dalam balasan privat (Ephemeral) -> Update di tempat
 			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
 				await interaction.update({
 					content: subMenuData.content,
@@ -544,37 +552,12 @@ client.on(Events.InteractionCreate, async interaction => {
 				return;
 			}
 
-			// 2. Jika ditekan dari panel toko publik:
-			const activeInteraction = userEphemeralInteractions.get(userId);
-
-			if (activeInteraction) {
-				try {
-					// Verifikasi apakah balasan privat sebelumnya masih terbuka di layar user
-					await activeInteraction.fetchReply();
-
-					// Jika masih terbuka -> Edit balasan privat tersebut di tempat!
-					await activeInteraction.editReply({
-						content: subMenuData.content,
-						components: subMenuData.components
-					});
-
-					// Acknowledge tombol publik tanpa membuat pesan baru
-					await interaction.deferUpdate();
-					return;
-				} catch (err) {
-					// Jika fetchReply / editReply gagal (pesan privat telah di-dismiss / ditutup), hapus dari map
-					userEphemeralInteractions.delete(userId);
-				}
-			}
-
-			// 3. Jika belum ada pesan privat terbuka ATAU pesan sebelumnya sudah di-dismiss -> Kirim pesan privat baru!
+			// 2. Jika ditekan dari panel publik -> Kirim/Replace balasan privat baru secara instan (<10ms)
 			await interaction.reply({
 				content: subMenuData.content,
 				components: subMenuData.components,
 				flags: MessageFlags.Ephemeral
 			});
-
-			userEphemeralInteractions.set(userId, interaction);
 			return;
 		}
 

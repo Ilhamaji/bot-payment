@@ -162,6 +162,13 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
         .setStyle(selectedCategory === 'ALL' ? ButtonStyle.Primary : ButtonStyle.Secondary);
     currentRow.addComponents(allBtn);
 
+    // Tombol "Buka / Reset Menu" (Trigger Fix jika balasan privat di-dismiss)
+    const refreshBtn = new ButtonBuilder()
+        .setCustomId('cat_filter_REFRESH')
+        .setLabel('🔄 Buka / Reset Menu')
+        .setStyle(ButtonStyle.Success);
+    currentRow.addComponents(refreshBtn);
+
     categories.forEach(cat => {
         if (currentRow.components.length >= 5) {
             rows.push(currentRow);
@@ -336,9 +343,6 @@ async function updateGlobalPanel(client) {
  * Membuat Sub-Menu Ringkas Khusus Balasan Ephemeral Tombol Kategori
  */
 function buildCategorySubMenuEphemeral(items, catName) {
-    const categories = getUniqueCategories(items);
-    const categoryRows = buildCategoryButtons(categories, catName);
-
     const filteredItems = catName === 'ALL' 
         ? items 
         : items.filter(i => (i.category || 'General').toLowerCase() === catName.toLowerCase());
@@ -372,10 +376,16 @@ function buildCategorySubMenuEphemeral(items, catName) {
         .addOptions(selectOptions);
 
     const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+    const closeBtnRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('close_ephemeral_menu')
+            .setLabel('❌ Tutup Menu')
+            .setStyle(ButtonStyle.Danger)
+    );
 
     return {
         content: content,
-        components: [...categoryRows, selectRow]
+        components: [selectRow, closeBtnRow]
     };
 }
 
