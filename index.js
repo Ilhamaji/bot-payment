@@ -535,21 +535,41 @@ client.on(Events.InteractionCreate, async interaction => {
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
 			const userId = interaction.user.id;
 
-			// Jika ditekan dari balasan privat ephemeral yang sudah ada -> Update in-place
+			// Cek apakah tombol ditekan langsung dari dalam balasan privat (Ephemeral)
 			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
 				await interaction.update({
 					content: subMenuData.content,
 					components: subMenuData.components
 				});
-			} else {
-				// Jika ditekan dari panel publik -> Kirim/Replace balasan privat baru
-				await interaction.reply({
-					content: subMenuData.content,
-					components: subMenuData.components,
-					flags: MessageFlags.Ephemeral
-				});
-				userEphemeralInteractions.set(userId, interaction);
+				return;
 			}
+
+			// Cek apakah user sudah memiliki balasan privat aktif sebelumnya
+			const activeInteraction = userEphemeralInteractions.get(userId);
+
+			if (activeInteraction) {
+				try {
+					// Coba edit/update balasan privat yang masih aktif di tempat
+					await activeInteraction.editReply({
+						content: subMenuData.content,
+						components: subMenuData.components
+					});
+					// Acknowledge tombol publik tanpa memicu pesan baru
+					await interaction.deferUpdate();
+					return;
+				} catch (err) {
+					// Jika balasan privat sebelumnya telah di-dismiss/dihapus pembeli, hapus dari map
+					userEphemeralInteractions.delete(userId);
+				}
+			}
+
+			// Jika belum ada balasan privat aktif (atau pesan sebelumnya di-dismiss), buat pesan privat baru
+			await interaction.reply({
+				content: subMenuData.content,
+				components: subMenuData.components,
+				flags: MessageFlags.Ephemeral
+			});
+			userEphemeralInteractions.set(userId, interaction);
 			return;
 		}
 
