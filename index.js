@@ -283,11 +283,19 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 		const ticketChannel = await interaction.guild.channels.create(channelData);
 
-		const replyMsg = `✅ Tiket pembayaran berhasil dibuat di channel privat ${ticketChannel}! Silakan buka channel tersebut untuk menyelesaikan pembayaran.`;
+		const channelUrl = `https://discord.com/channels/${interaction.guild.id}/${ticketChannel.id}`;
+		const openTicketBtn = new ButtonBuilder()
+			.setLabel('🚀 Buka Channel Tiket Kamu')
+			.setStyle(ButtonStyle.Link)
+			.setURL(channelUrl);
+
+		const openRow = new ActionRowBuilder().addComponents(openTicketBtn);
+
+		const replyMsg = `✅ **TIKET BERHASIL DIBUAT!** Klik tombol **"🚀 Buka Channel Tiket Kamu"** di bawah atau tekan ${ticketChannel} untuk langsung masuk ke channel tiket privat kamu!`;
 		if (interaction.deferred) {
-			await interaction.editReply({ content: replyMsg });
+			await interaction.editReply({ content: replyMsg, components: [openRow] });
 		} else {
-			await interaction.reply({ content: replyMsg, flags: MessageFlags.Ephemeral });
+			await interaction.reply({ content: replyMsg, components: [openRow], flags: MessageFlags.Ephemeral });
 		}
 
 		ticketCreationInteractions.set(orderId.toUpperCase(), interaction);
