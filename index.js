@@ -1109,8 +1109,6 @@ client.on(Events.InteractionCreate, async interaction => {
 
 		// AE. Tombol "🔄 Cek Dulu Deh"
 		if (interaction.customId.startsWith('check_again_')) {
-			const orderId = interaction.customId.replace('check_again_', '');
-
 			const guideEmbed = new EmbedBuilder()
 				.setTitle('📖  PANDUAN CEK LIMIT AKUN ROBLOX')
 				.setColor(0x5865F2)
@@ -1124,16 +1122,8 @@ client.on(Events.InteractionCreate, async interaction => {
 				)
 				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
 
-			const guideBtn = new ButtonBuilder()
-				.setCustomId(`limit_guide_${orderId}`)
-				.setLabel('📖 Tutorial Cara Cek Limit')
-				.setStyle(ButtonStyle.Primary);
-
-			const row = new ActionRowBuilder().addComponents(guideBtn);
-
 			await interaction.reply({
 				embeds: [guideEmbed],
-				components: [row],
 				flags: MessageFlags.Ephemeral
 			});
 			return;
