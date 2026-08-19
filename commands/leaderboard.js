@@ -6,9 +6,12 @@ const { saveLeaderboardLocation } = require('../services/panelManager');
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('leaderboard')
-		.setDescription('Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak (Admin: Pasang Panel Live)'),
+		.setDescription('[ADMIN] Mengirimkan & mendaftarkan Panel Live Leaderboard di channel ini'),
 	async execute(interaction) {
-		const userIsAdmin = isAdmin(interaction.user.id);
+		if (!isAdmin(interaction.user.id)) {
+			return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin toko yang dapat memasang panel Leaderboard.', flags: MessageFlags.Ephemeral });
+		}
+
 		const topSpenders = await getTopSpenders(10);
 
 		let description = `Berikut adalah daftar **10 Pembeli Terbanyak (Top Spenders)** di **Bebey Store** yang telah terverifikasi:\n\n`;
@@ -31,18 +34,13 @@ module.exports = {
 			.setTimestamp()
 			.setFooter({ text: '⚡ Bebey Store Official • Auto-Refreshed Live Leaderboard' });
 
-		if (userIsAdmin) {
-			// Admin Mode: Pasang Pesan Live Leaderboard Permanen di Channel Ini
-			const lbMessage = await interaction.channel.send({ embeds: [embed] });
-			saveLeaderboardLocation(interaction.channelId, lbMessage.id);
+		// Admin Mode: Pasang Pesan Live Leaderboard Permanen di Channel Ini
+		const lbMessage = await interaction.channel.send({ embeds: [embed] });
+		saveLeaderboardLocation(interaction.channelId, lbMessage.id);
 
-			return interaction.reply({
-				content: `✅ **Panel Live Leaderboard berhasil dikirim ke #${interaction.channel.name}!** Pesan ini akan otomatis ter-update real-time setiap kali transaksi selesai.`,
-				flags: MessageFlags.Ephemeral
-			});
-		} else {
-			// Public Buyer Mode: Tampilkan balasan ephemeral
-			return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-		}
+		return interaction.reply({
+			content: `✅ **Panel Live Leaderboard berhasil dikirim ke #${interaction.channel.name}!** Pesan ini akan otomatis ter-update real-time setiap kali transaksi selesai.`,
+			flags: MessageFlags.Ephemeral
+		});
 	},
 };

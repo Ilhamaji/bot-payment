@@ -125,14 +125,13 @@ npm run deploy
 ### 👥 Perintah Pembeli (Public Commands)
 | Perintah | Deskripsi |
 | :--- | :--- |
-| `/help` | Menampilkan panduan cara berbelanja dan membuat tiket transaksi. |
-| `/leaderboard` | Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak. |
+| `/help` | Menampilkan panduan cara berbelanja & meng-tag channel katalog toko dan leaderboard. |
 
 ### ⚙️ Perintah Admin Toko (Admin Commands)
 | Perintah | Deskripsi |
 | :--- | :--- |
 | `/panel` | Mengirimkan Pesan Panel Katalog Toko di channel toko (cth: `#beli-disini`). |
-| `/leaderboard` *(Admin)* | Mengirimkan & mendaftarkan Panel Live Leaderboard di channel terpisah (cth: `#leaderboard`). |
+| `/leaderboard` | Mengirimkan & mendaftarkan Panel Live Leaderboard di channel terpisah (cth: `#leaderboard`). |
 | `/additem` | Menambah item baru ke katalog toko (nama, harga, username, kategori, emoji, deskripsi). |
 | `/edititem` | Mengubah detail item toko secara keseluruhan (dukungan reset emoji). |
 | `/delitem` | Menghapus item spesifik dari katalog toko. |
