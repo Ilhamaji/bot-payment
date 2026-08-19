@@ -524,40 +524,34 @@ client.on(Events.InteractionCreate, async interaction => {
 
 	// 4. Handle Buttons (SOS, Close Ticket, Admin Approval, Category Sub-Menu Filter)
 	if (interaction.isButton()) {
-		// A0. Tombol Tutup Menu Privat
-		if (interaction.customId === 'close_ephemeral_menu') {
-			try {
-				await interaction.deleteReply();
-			} catch (e) {}
-			return;
-		}
-
 		// AA. Tombol Sub-Menu Filter Kategori Produk (/panel) - SUB-MENU RINGKAS PER-USER
 		if (interaction.customId.startsWith('cat_filter_')) {
-			let catName = interaction.customId.replace('cat_filter_', '');
-			if (catName === 'REFRESH') catName = 'ALL';
+			const catName = interaction.customId.replace('cat_filter_', '');
 			
 			delete require.cache[require.resolve('./config/items')];
 			const items = require('./config/items');
 			const { buildCategorySubMenuEphemeral } = require('./services/panelManager');
 
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
+			const userId = interaction.user.id;
 
-			// 1. Jika tombol ditekan dari dalam balasan privat (Ephemeral) -> Update di tempat
-			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
-				await interaction.update({
-					content: subMenuData.content,
-					components: subMenuData.components
-				});
-				return;
+			// Bersihkan/Hapus pesan privat lama milik pembeli jika masih ada
+			const existingInteraction = userEphemeralInteractions.get(userId);
+			if (existingInteraction) {
+				try {
+					await existingInteraction.deleteReply();
+				} catch (err) {}
+				userEphemeralInteractions.delete(userId);
 			}
 
-			// 2. Jika ditekan dari panel publik -> Kirim/Replace balasan privat baru secara instan (<10ms)
+			// Selalu tampilkan 1 pesan privat baru di layar pembeli!
 			await interaction.reply({
 				content: subMenuData.content,
 				components: subMenuData.components,
 				flags: MessageFlags.Ephemeral
 			});
+
+			userEphemeralInteractions.set(userId, interaction);
 			return;
 		}
 
