@@ -489,12 +489,20 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
 
-			// Balas ringkas rahasia (Ephemeral) TANPA DUPLIKAT EMBED PANEL UTAMA
-			await interaction.reply({
-				content: subMenuData.content,
-				components: subMenuData.components,
-				flags: MessageFlags.Ephemeral
-			});
+			// Jika pesan asal adalah pesan privat ephemeral user, update pesan tersebut (tanpa kirim pesan baru)
+			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
+				await interaction.update({
+					content: subMenuData.content,
+					components: subMenuData.components
+				});
+			} else {
+				// Jika pesan asal adalah panel toko publik, kirim balasan ephemeral privat baru
+				await interaction.reply({
+					content: subMenuData.content,
+					components: subMenuData.components,
+					flags: MessageFlags.Ephemeral
+				});
+			}
 			return;
 		}
 

@@ -258,6 +258,9 @@ async function updateGlobalPanel(client) {
  * Membuat Sub-Menu Ringkas (Tanpa Embed Duplikat) Khusus Balasan Ephemeral Tombol Kategori
  */
 function buildCategorySubMenuEphemeral(items, catName) {
+    const categories = getUniqueCategories(items);
+    const categoryRows = buildCategoryButtons(categories, catName);
+
     const categoryEmojis = {
         'Robux': '💎',
         'Passes': '🚀',
@@ -297,11 +300,11 @@ function buildCategorySubMenuEphemeral(items, catName) {
         .setPlaceholder(`🛒 Pilih Produk ${catName === 'ALL' ? 'Semua Produk' : catName}...`)
         .addOptions(selectOptions);
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
 
     return {
         content: content,
-        components: [row]
+        components: [...categoryRows, selectRow]
     };
 }
 
