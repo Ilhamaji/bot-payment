@@ -796,7 +796,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			await interaction.followUp({ content: `❌ Transaksi \`${orderId}\` telah ditolak oleh ${interaction.user}.` });
 
 			// Cari channel tiket berdasarkan orderId dan kirim notifikasi reject ke pembeli
-			const targetChannelName = `ticket-${orderId.toLowerCase()}`;
+			const targetChannelName = orderId.toLowerCase();
 			try {
 				let targetGuild = interaction.guild;
 				if (!targetGuild) {

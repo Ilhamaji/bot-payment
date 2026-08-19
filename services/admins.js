@@ -13,20 +13,22 @@ if (!fs.existsSync(adminsFilePath)) {
  * Cek apakah user adalah Owner / Admin Utama (HANYA DARI OWNER_DISCORD_ID DI .ENV)
  */
 function isOwner(userId) {
+    if (!userId) return false;
     const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : '';
-    return ownerId !== '' && userId === ownerId;
+    return ownerId !== '' && String(userId).trim() === ownerId;
 }
 
 /**
  * Cek apakah user adalah Admin (Admin Utama dari .env ATAU Admin Sekunder dari admins.json)
  */
 function isAdmin(userId) {
+    if (!userId) return false;
     if (isOwner(userId)) return true;
 
     try {
         const data = fs.readFileSync(adminsFilePath, 'utf8');
         const adminList = JSON.parse(data);
-        return adminList.some(a => a.id === userId);
+        return Array.isArray(adminList) && adminList.some(a => String(a.id).trim() === String(userId).trim());
     } catch (err) {
         console.error('Error reading admins.json:', err);
         return false;
