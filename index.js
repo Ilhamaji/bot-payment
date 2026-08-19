@@ -133,7 +133,12 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 					.setLabel('✅ Selesai (Klik Hanya Jika Item Sudah Diterima)')
 					.setStyle(ButtonStyle.Success);
 
-				const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn);
+				const saveDmBtn = new ButtonBuilder()
+					.setCustomId(`save_dm_proof_${orderId}`)
+					.setLabel('📩 Simpan Bukti Transaksi ke DM')
+					.setStyle(ButtonStyle.Primary);
+
+				const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn, saveDmBtn);
 
 				await ticketChannel.send({ 
 					content: buyerMention ? `🔔 Halo ${buyerMention}, transaksi Anda telah disetujui!` : null, 
@@ -1267,6 +1272,94 @@ client.on(Events.InteractionCreate, async interaction => {
 					console.error('Error deleting finished ticket channel:', err);
 				}
 			}, 5000);
+			return;
+		}
+
+		// B4. Tombol Simpan Bukti Transaksi & Pengiriman ke DM Pembeli
+		if (interaction.customId.startsWith('save_dm_proof_')) {
+			const orderId = interaction.customId.replace('save_dm_proof_', '');
+
+			const { supabase } = require('./services/supabase');
+			const { data: purchase } = await supabase.from('purchases').select('*').eq('order_id', orderId).single();
+
+			// Cari foto bukti pengiriman dari pesan embed di channel ini
+			let deliveryProofUrl = null;
+			let paymentProofUrl = null;
+
+			try {
+				const msgs = await interaction.channel.messages.fetch({ limit: 50 });
+				for (const [id, msg] of msgs) {
+					if (msg.embeds.length > 0) {
+						const title = msg.embeds[0].title || '';
+						if (title.includes('PEMBAYARAN DI-APPROVE') && msg.embeds[0].image) {
+							deliveryProofUrl = msg.embeds[0].image.url;
+						}
+						if (title.includes('BUKTI TRANSFER DITERIMA') && msg.embeds[0].image) {
+							paymentProofUrl = msg.embeds[0].image.url;
+						}
+					}
+				}
+			} catch (e) {}
+
+			const itemName = purchase ? purchase.item_name : 'Produk Bebey Store';
+			const itemPrice = purchase ? purchase.price : 0;
+			const robloxUser = purchase ? (purchase.roblox_username || 'N/A') : 'N/A';
+			const formattedPrice = `Rp ${itemPrice.toLocaleString('id-ID')}`;
+
+			const receiptEmbed = new EmbedBuilder()
+				.setTitle('🧾  BEBEY STORE — STRUK BUKTI TRANSAKSI & PENGIRIMAN')
+				.setColor(0x2ECC71)
+				.setDescription(
+					`Halo ${interaction.user}! Berikut adalah **Struk Bukti Resmi Transaksi & Pengiriman** dari toko Bebey Store.\n` +
+					`Simpan pesan ini sebagai bukti sah transaksi Anda.`
+				)
+				.addFields(
+					{ name: '🆔 ORDER ID', value: `\`${orderId}\``, inline: true },
+					{ name: '📦 ITEM DIBELI', value: `**${itemName}**`, inline: true },
+					{ name: '💰 TOTAL BAYAR', value: `**${formattedPrice}**`, inline: true },
+					{ name: '👤 USERNAME ROBLOX', value: `\`${robloxUser}\``, inline: true },
+					{ name: '📅 TANGGAL', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+					{ name: '🔒 STATUS', value: '`✅ SELESAI & TERVERIFIKASI`', inline: true }
+				)
+				.setTimestamp()
+				.setFooter({ text: '💖 Bebey Store Official • Terima kasih telah berbelanja di Bebey Store!' });
+
+			const embedsToSend = [receiptEmbed];
+
+			// Jika ada foto bukti pengiriman dari Admin, buat embed khusus
+			if (deliveryProofUrl) {
+				const deliveryEmbed = new EmbedBuilder()
+					.setTitle('📸  BUKTI PENGIRIMAN ITEM (ADMIN)')
+					.setColor(0x3498DB)
+					.setDescription(`Berikut adalah foto screenshot bukti pengiriman item ke akun Roblox \`${robloxUser}\`:`)
+					.setImage(deliveryProofUrl)
+					.setFooter({ text: `Order ID: ${orderId}` });
+				embedsToSend.push(deliveryEmbed);
+			}
+
+			// Jika ada foto bukti transfer dari Pembeli, buat embed khusus
+			if (paymentProofUrl) {
+				const paymentEmbed = new EmbedBuilder()
+					.setTitle('📸  BUKTI TRANSFER PEMBAYARAN (PEMBELI)')
+					.setColor(0xF1C40F)
+					.setDescription(`Berikut adalah foto screenshot bukti pembayaran transfer Anda:`)
+					.setImage(paymentProofUrl)
+					.setFooter({ text: `Order ID: ${orderId}` });
+				embedsToSend.push(paymentEmbed);
+			}
+
+			try {
+				await interaction.user.send({ embeds: embedsToSend });
+				await interaction.reply({
+					content: `📩 **BERHASIL!** Struk bukti transaksi dan foto bukti pengiriman telah dikirimkan ke **Direct Message (DM)** Anda! Silakan periksa DM Discord Anda.`,
+					flags: MessageFlags.Ephemeral
+				});
+			} catch (dmErr) {
+				await interaction.reply({
+					content: `⚠️ **GAGAL MENGIRIM DM!**\n> Mohon buka **Pengaturan Privasi Discord** Anda (Izinkan Direct Messages dari Anggota Server) lalu coba tekan tombol ini lagi.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
 			return;
 		}
 
