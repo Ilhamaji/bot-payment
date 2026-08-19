@@ -403,13 +403,16 @@ client.on(Events.MessageCreate, async message => {
 		const channelName = message.channel.name;
 		const orderId = channelName.toUpperCase();
 
+		// Bersihkan/Hapus notifikasi bukti transfer lama di Admin Channel jika pembeli mengupload ulang gambar baru
+		await deleteAdminChannelMessagesForOrder(client, orderId, message.channelId);
+
 		// 1. EMBED TAMPILAN PEMBELI (Di Channel Tiket) - TANPA TOMBOL APPROVE/REJECT
 		const buyerProofEmbed = new EmbedBuilder()
-			.setTitle('📸  BEBEY STORE — BUKTI TRANSFER DITERIMA')
+			.setTitle('📸  BEBEY STORE — BUKTI TRANSFER TERBARU DITERIMA')
 			.setColor(0x2ECC71)
 			.setDescription(
-				`Foto screenshot bukti transfer dari ${message.author} telah berhasil diterima oleh sistem.\n` +
-				`Bukti transfer Anda saat ini sedang diverifikasi oleh Tim Admin Bebey Store.`
+				`Foto screenshot bukti transfer terbaru dari ${message.author} telah berhasil diterima.\n` +
+				`Bukti transfer ini sedang diverifikasi oleh Tim Admin Bebey Store.`
 			)
 			.setImage(proofUrl)
 			.setTimestamp()
