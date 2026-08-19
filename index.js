@@ -688,7 +688,55 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			await interaction.update({ embeds: [updatedNotesEmbed], components: [] });
 
-			// Kirim Pesan 4: QRIS Code & Instruksi Pembayaran
+			// Kirim Pesan 4: Cek Limit Akun Dulu Yuk!
+			const limitDescription = 
+				`**${interaction.user}** sebelum lanjut bayar, kakak perlu **cek limit akun** dulu ya. 🙏\n\n` +
+				`Ini biar Robux-nya masuk penuh dan gak ada yang nyangkut gara-gara limit.\n\n` +
+				`📖 Ada 2 tutorial di tombol bawah: **cara cek limit akun** & **cara cek sisa limit**.\n\n` +
+				`Kalau udah dicek, pilih salah satu tombol di bawah 👇`;
+
+			const limitEmbed = new EmbedBuilder()
+				.setTitle('🔍  Cek Limit Akun Dulu Yuk!')
+				.setColor(0xF1C40F)
+				.setDescription(limitDescription.trim())
+				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+			const notLimitBtn = new ButtonBuilder()
+				.setCustomId(`limit_ok_${orderId}`)
+				.setLabel('✅ Tidak Limit')
+				.setStyle(ButtonStyle.Success);
+
+			const isLimitBtn = new ButtonBuilder()
+				.setCustomId(`limit_warning_${orderId}`)
+				.setLabel('⚠️ Akun Saya Limit')
+				.setStyle(ButtonStyle.Danger);
+
+			const guideBtn = new ButtonBuilder()
+				.setCustomId(`limit_guide_${orderId}`)
+				.setLabel('📖 Cara Cek Limit Akun')
+				.setStyle(ButtonStyle.Secondary);
+
+			const limitRow1 = new ActionRowBuilder().addComponents(notLimitBtn, isLimitBtn);
+			const limitRow2 = new ActionRowBuilder().addComponents(guideBtn);
+
+			await interaction.channel.send({
+				embeds: [limitEmbed],
+				components: [limitRow1, limitRow2]
+			});
+			return;
+		}
+
+		// AC. Tombol "✅ Tidak Limit"
+		if (interaction.customId.startsWith('limit_ok_')) {
+			const orderId = interaction.customId.replace('limit_ok_', '');
+
+			const updatedLimitEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  AKUN BEBAS LIMIT');
+
+			await interaction.update({ embeds: [updatedLimitEmbed], components: [] });
+
+			// Kirim Pesan 5: QRIS Code & Instruksi Pembayaran
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
 
 			const paymentDescription = 
@@ -706,6 +754,39 @@ client.on(Events.InteractionCreate, async interaction => {
 				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
 
 			await interaction.channel.send({ embeds: [paymentEmbed] });
+			return;
+		}
+
+		// AD. Tombol "⚠️ Akun Saya Limit"
+		if (interaction.customId.startsWith('limit_warning_')) {
+			await interaction.reply({
+				content: 
+					`⚠️ **AKUN TERKENA LIMIT!**\n` +
+					`> Mohon gunakan akun Roblox lain yang **belum terkena limit** untuk menerima Robux.\n` +
+					`> Silakan scroll ke atas dan tekan tombol **"❌ Bukan, Ganti Username"** pada kartu Konfirmasi Akun Roblox untuk mengganti ke akun lain.`,
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
+		// AE. Tombol "📖 Cara Cek Limit Akun"
+		if (interaction.customId.startsWith('limit_guide_')) {
+			const guideEmbed = new EmbedBuilder()
+				.setTitle('📖  PANDUAN CEK LIMIT AKUN ROBLOX')
+				.setColor(0x5865F2)
+				.setDescription(
+					`Berikut adalah langkah-langkah mudah untuk mengecek limit akun Roblox Anda:\n\n` +
+					`1️⃣ Buka browser dan login ke akun Roblox Anda di **roblox.com**.\n` +
+					`2️⃣ Masuk ke menu **Settings / Pengaturan** > **Privacy / Keamanan**.\n` +
+					`3️⃣ Cek apakah fitur transaksi/penerimaan Robux Anda masih aktif atau sedang dibatasi oleh sistem Roblox.\n` +
+					`4️⃣ Jika sisa limit cukup untuk transaksi ini, tekan tombol **"✅ Tidak Limit"**.`
+				)
+				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
+
+			await interaction.reply({
+				embeds: [guideEmbed],
+				flags: MessageFlags.Ephemeral
+			});
 			return;
 		}
 
