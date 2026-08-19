@@ -382,6 +382,9 @@ async function deleteAdminChannelMessagesForOrder(clientInstance, orderId, chann
 		const ticketChannelPattern = orderId ? orderId.toLowerCase() : null;
 		const targetChanId = channelId ? String(channelId) : null;
 
+		const deletedMsgIds = new Set();
+
+		// Pass 1: Cari dan hapus pesan utama yang memuat Order ID / Channel ID
 		for (const [id, msg] of fetchedMessages) {
 			const msgText = (msg.content || '') + ' ' + (msg.embeds.map(e => (e.title || '') + ' ' + (e.description || '') + ' ' + (e.fields ? e.fields.map(f => f.name + ' ' + f.value).join(' ') : '')).join(' '));
 
@@ -391,9 +394,20 @@ async function deleteAdminChannelMessagesForOrder(clientInstance, orderId, chann
 			if (targetChanId && targetChanId.length > 4 && msgText.includes(targetChanId)) isMatch = true;
 
 			if (isMatch) {
+				deletedMsgIds.add(msg.id);
 				try {
 					await msg.delete();
 					console.log(`[AUTO-CLEANUP ADMIN] Pesan transaksi/SOS di Admin Channel untuk ${orderId || channelId} telah dihapus.`);
+				} catch (e) {}
+			}
+		}
+
+		// Pass 2: Cari dan hapus semua pesan balasan (reply) Admin yang merujuk pada pesan transaksi tersebut
+		for (const [id, msg] of fetchedMessages) {
+			if (msg.reference && msg.reference.messageId && deletedMsgIds.has(msg.reference.messageId)) {
+				try {
+					await msg.delete();
+					console.log(`[AUTO-CLEANUP ADMIN] Pesan balasan (reply) foto bukti pengiriman di Admin Channel untuk ${orderId || channelId} telah dihapus.`);
 				} catch (e) {}
 			}
 		}
