@@ -138,7 +138,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		ticketCreationInteractions.set(orderId.toUpperCase(), interaction);
 		ticketCreationInteractions.set(ticketChannel.id, interaction);
 
-		// 1. Embed Tiket Pembayaran & Catatan Awal
+		// 1. Embed Tiket Pembayaran Rincian
 		const userLine = (robloxUsername && robloxUsername !== 'Tidak Perlu') 
 			? `👤 **Username Roblox:** \`${robloxUsername}\`\n` 
 			: '';
@@ -148,14 +148,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 			`📦 **Item Dibeli:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
 			userLine +
 			`🆔 **Order ID:** \`${orderId}\`\n` +
-			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**\n\n` +
-			`📌 **Catatan Awal**\n` +
-			`• Pastikan **username** dan **display name** Roblox sudah sesuai dengan akun tujuan.\n` +
-			`• Mohon cek umur akun sebelum order. Untuk akun di bawah 18+, pastikan akun sudah terhubung dengan email parent.\n` +
-			`• Jika akun sedang terkena limit, gunakan akun lain yang sudah siap menerima Robux.\n` +
-			`• Setelah Robux berhasil dikirim ke akun yang sudah kamu konfirmasi, perubahan akun/limit setelah proses selesai berada di luar kendali Bebey Store. Admin tetap akan bantu cek kalau ada kendala.\n` +
-			`• Nyalakan verifikasi 2 langkah di setting > keamanan > email agar akun lebih aman.\n` +
-			`• Proses Via Username **15 menit – 240 menit** (maksimal 4 jam).`;
+			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
 
 		const ticketEmbed = new EmbedBuilder()
 			.setTitle(`🎫  BEBEY STORE — TIKET PEMBAYARAN`)
@@ -176,7 +169,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 		const row = new ActionRowBuilder().addComponents(sosButton, closeButton);
 
-		// Kirim Pesan Pertama: Tiket & Catatan Awal
+		// Kirim Pesan Pertama: Tiket Rincian
 		await ticketChannel.send({
 			embeds: [ticketEmbed],
 			components: [row]
@@ -653,7 +646,49 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			await interaction.update({ embeds: [updatedConfirmEmbed], components: [] });
 
-			// Kirim Pesan QRIS & Cara Pembayaran setelah akun dikonfirmasi
+			// Kirim Pesan 3: Catatan Penting Via Username Embed Card
+			const notesDescription = 
+				`Baca catatan ini sebentar sebelum lanjut ke pembayaran.\n\n` +
+				`• Pastikan **username** dan **display name** Roblox sudah sesuai dengan akun tujuan.\n` +
+				`• Mohon cek umur akun sebelum order. Untuk akun di bawah 18+, pastikan akun sudah terhubung dengan email parent.\n` +
+				`• Jika akun sedang terkena limit, gunakan akun lain yang sudah siap menerima Robux.\n` +
+				`• Setelah Robux berhasil dikirim ke akun yang sudah kamu konfirmasi, perubahan akun/limit setelah proses selesai berada di luar kendali Bebey Store. Admin tetap akan bantu cek kalau ada kendala.\n` +
+				`• Nyalakan verifikasi 2 langkah di setting > keamanan > email agar akun lebih aman.\n` +
+				`• Proses Via Username **15 menit – 240 menit** (maksimal 4 jam).\n\n` +
+				`Kalau datanya sudah sesuai, klik tombol di bawah untuk lanjut ke konfirmasi pesanan.`;
+
+			const notesEmbed = new EmbedBuilder()
+				.setTitle('📌  Catatan Penting Via Username')
+				.setColor(0xE91E63)
+				.setDescription(notesDescription.trim())
+				.setTimestamp()
+				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+			const agreeBtn = new ButtonBuilder()
+				.setCustomId(`agree_terms_${orderId}`)
+				.setLabel('✅ Saya Paham & Setuju')
+				.setStyle(ButtonStyle.Success);
+
+			const agreeRow = new ActionRowBuilder().addComponents(agreeBtn);
+
+			await interaction.channel.send({
+				embeds: [notesEmbed],
+				components: [agreeRow]
+			});
+			return;
+		}
+
+		// AB. Tombol "Saya Paham & Setuju" Catatan Penting
+		if (interaction.customId.startsWith('agree_terms_')) {
+			const orderId = interaction.customId.replace('agree_terms_', '');
+
+			const updatedNotesEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  CATATAN DISETUJUI');
+
+			await interaction.update({ embeds: [updatedNotesEmbed], components: [] });
+
+			// Kirim Pesan 4: QRIS Code & Instruksi Pembayaran
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
 
 			const paymentDescription = 
