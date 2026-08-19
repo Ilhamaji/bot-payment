@@ -1234,7 +1234,9 @@ client.on(Events.InteractionCreate, async interaction => {
 				try {
 					if (ticketChan) await ticketChan.delete();
 				} catch (err) {
-					console.error('Error deleting ticket channel:', err);
+					if (err.code !== 10003 && err.status !== 404) {
+						console.error('Error deleting ticket channel:', err);
+					}
 				}
 			}, 5000);
 			return;
@@ -1269,7 +1271,9 @@ client.on(Events.InteractionCreate, async interaction => {
 				try {
 					if (ticketChan) await ticketChan.delete();
 				} catch (err) {
-					console.error('Error deleting finished ticket channel:', err);
+					if (err.code !== 10003 && err.status !== 404) {
+						console.error('Error deleting finished ticket channel:', err);
+					}
 				}
 			}, 5000);
 			return;
