@@ -5,6 +5,11 @@
 .env.test
 .env.production
 
+# Local BiznetGio folder & SQLite databases
+biznetgio/
+*.sqlite
+*.db
+
 # Dynamic local panel runtime configuration (Selalu tersimpan sebagai {} di Git/GitHub)
 config/panel_config.json
 
