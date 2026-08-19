@@ -1137,6 +1137,13 @@ client.on(Events.InteractionCreate, async interaction => {
 			await interaction.update({ embeds: [updatedProofEmbed], components: [] });
 
 			// SEKARANG BARU KIRIM BUKTI KE ADMIN CHANNEL / ADMIN PANEL
+			const { supabase } = require('./services/supabase');
+			const { data: purchase } = await supabase.from('purchases').select('*').eq('order_id', orderId).single();
+
+			const itemName = purchase ? purchase.item_name : 'N/A';
+			const itemPrice = purchase ? `Rp ${purchase.price.toLocaleString('id-ID')}` : 'N/A';
+			const robloxUser = purchase ? (purchase.roblox_username || 'Tidak Perlu') : 'Tidak Perlu';
+
 			const adminProofEmbed = new EmbedBuilder()
 				.setTitle('📸  VERIFIKASI BUKTI TRANSFER — ADMIN PANEL')
 				.setColor(0xF39C12)
@@ -1146,9 +1153,17 @@ client.on(Events.InteractionCreate, async interaction => {
 				)
 				.addFields(
 					{ name: '🆔 ORDER ID', value: `\`${orderId}\``, inline: true },
+					{ name: '📦 ITEM DIBELI', value: `**${itemName}**`, inline: true },
+					{ name: '💰 NOMINAL TRANSFER', value: `**${itemPrice}**`, inline: true },
 					{ name: '👤 PEMBELI', value: `${interaction.user}`, inline: true },
 					{ name: '📍 TIKET CHANNEL', value: `<#${interaction.channelId}>`, inline: true }
-				)
+				);
+
+			if (robloxUser && robloxUser !== 'Tidak Perlu') {
+				adminProofEmbed.addFields({ name: '👤 USERNAME ROBLOX', value: `\`${robloxUser}\``, inline: true });
+			}
+
+			adminProofEmbed
 				.setImage(proofUrl)
 				.setTimestamp()
 				.setFooter({ text: 'Tekan Approve untuk menyetujui transaksi atau Reject untuk menolak.' });
