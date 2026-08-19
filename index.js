@@ -134,30 +134,31 @@ async function createTicketChannel(interaction, selectedItem, robloxUsername = '
 		ticketCreationInteractions.set(orderId.toUpperCase(), interaction);
 		ticketCreationInteractions.set(ticketChannel.id, interaction);
 
-		// Embed Tiket (Single-Card Clean Aesthetic - 100% Non-Recursive)
+		// 1. Embed Tiket Pembayaran & Catatan Awal
 		const userLine = (robloxUsername && robloxUsername !== 'Tidak Perlu') 
 			? `👤 **Username Roblox:** \`${robloxUsername}\`\n` 
 			: '';
 
 		const ticketDescription = 
-			`Halo ${interaction.user}! Rincian pesanan Anda telah siap.\n` +
-			`Silakan lakukan transfer ke gambar QRIS Bebey Store di bawah ini.\n\n` +
+			`Halo ${interaction.user}! Rincian pesanan Anda telah siap.\n\n` +
 			`📦 **Item Dibeli:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
 			userLine +
 			`🆔 **Order ID:** \`${orderId}\`\n` +
 			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**\n\n` +
-			`📌 **INSTRUKSI PEMBAYARAN:**\n` +
-			`1️⃣ Transfer **Rp ${totalAmount.toLocaleString('id-ID')}** ke QRIS di bawah ini.\n` +
-			`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
-			`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+			`📌 **Catatan Awal**\n` +
+			`• Pastikan **username** dan **display name** Roblox sudah sesuai dengan akun tujuan.\n` +
+			`• Mohon cek umur akun sebelum order. Untuk akun di bawah 18+, pastikan akun sudah terhubung dengan email parent.\n` +
+			`• Jika akun sedang terkena limit, gunakan akun lain yang sudah siap menerima Robux.\n` +
+			`• Setelah Robux berhasil dikirim ke akun yang sudah kamu konfirmasi, perubahan akun/limit setelah proses selesai berada di luar kendali Bebey Store. Admin tetap akan bantu cek kalau ada kendala.\n` +
+			`• Nyalakan verifikasi 2 langkah di setting > keamanan > email agar akun lebih aman.\n` +
+			`• Proses Via Username **15 menit – 240 menit** (maksimal 4 jam).`;
 
-		const embed = new EmbedBuilder()
+		const ticketEmbed = new EmbedBuilder()
 			.setTitle(`🎫  BEBEY STORE — TIKET PEMBAYARAN`)
 			.setColor(0x2ECC71)
 			.setDescription(ticketDescription.trim())
-			.setImage(qrisImage)
 			.setTimestamp()
-			.setFooter({ text: '🔒 Bebey Store Official • Private Ticket Channel' });
+			.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
 		const sosButton = new ButtonBuilder()
 			.setCustomId('sos_help_button')
@@ -171,10 +172,30 @@ async function createTicketChannel(interaction, selectedItem, robloxUsername = '
 
 		const row = new ActionRowBuilder().addComponents(sosButton, closeButton);
 
-		// Kirim HANYA 1 Embed Card (tanpa pesan teks berulang di luar embed)
+		// Kirim Pesan Pertama: Tiket & Catatan Awal
 		await ticketChannel.send({
-			embeds: [embed],
+			embeds: [ticketEmbed],
 			components: [row]
+		});
+
+		// 2. Embed Instruksi Pembayaran & Gambar QRIS (Dipindah ke Chat Setelahnya)
+		const paymentDescription = 
+			`📌 **INSTRUKSI PEMBAYARAN:**\n` +
+			`1️⃣ Transfer **Rp ${totalAmount.toLocaleString('id-ID')}** ke QRIS Bebey Store di bawah ini.\n` +
+			`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
+			`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+
+		const paymentEmbed = new EmbedBuilder()
+			.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
+			.setColor(0x3498DB)
+			.setDescription(paymentDescription.trim())
+			.setImage(qrisImage)
+			.setTimestamp()
+			.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
+
+		// Kirim Pesan Kedua: QRIS & Cara Pembayaran
+		await ticketChannel.send({
+			embeds: [paymentEmbed]
 		});
 
 		// Catat pesanan baru ke Supabase dengan Discord User Tag agar Leaderboard menampilkan Username Discord
