@@ -107,6 +107,10 @@ function getPanelLocation() {
  */
 function saveCatalogLocation(channelId, catalogMessageId) {
     try {
+        const configDir = path.dirname(configFile);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
         const current = getPanelLocation();
         current.catalogChannelId = channelId;
         current.catalogMessageId = catalogMessageId;
@@ -121,6 +125,10 @@ function saveCatalogLocation(channelId, catalogMessageId) {
  */
 function saveLeaderboardLocation(channelId, leaderboardMessageId) {
     try {
+        const configDir = path.dirname(configFile);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
         const current = getPanelLocation();
         current.leaderboardChannelId = channelId;
         current.leaderboardMessageId = leaderboardMessageId;
