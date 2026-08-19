@@ -535,7 +535,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
 			const userId = interaction.user.id;
 
-			// Cek apakah tombol ditekan langsung dari dalam balasan privat (Ephemeral)
+			// Jika ditekan dari dalam pesan privat ephemeral -> Update di tempat
 			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
 				await interaction.update({
 					content: subMenuData.content,
@@ -544,26 +544,7 @@ client.on(Events.InteractionCreate, async interaction => {
 				return;
 			}
 
-			// Cek apakah user sudah memiliki balasan privat aktif sebelumnya
-			const activeInteraction = userEphemeralInteractions.get(userId);
-
-			if (activeInteraction) {
-				try {
-					// Coba edit/update balasan privat yang masih aktif di tempat
-					await activeInteraction.editReply({
-						content: subMenuData.content,
-						components: subMenuData.components
-					});
-					// Acknowledge tombol publik tanpa memicu pesan baru
-					await interaction.deferUpdate();
-					return;
-				} catch (err) {
-					// Jika balasan privat sebelumnya telah di-dismiss/dihapus pembeli, hapus dari map
-					userEphemeralInteractions.delete(userId);
-				}
-			}
-
-			// Jika belum ada balasan privat aktif (atau pesan sebelumnya di-dismiss), buat pesan privat baru
+			// Jika ditekan dari panel publik -> Kirim balasan privat ephemeral (Selalu muncul segar & mengganti pesan lama!)
 			await interaction.reply({
 				content: subMenuData.content,
 				components: subMenuData.components,
