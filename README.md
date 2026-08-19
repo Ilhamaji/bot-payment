@@ -11,7 +11,7 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 - 🎫 **Sistem Tiket Privat Otomatis**: Setiap pembeli mendapatkan text channel privat khusus (`#<kode-item>-<hash>`) di bawah Kategori Discord yang telah ditentukan.
 - 💳 **Verifikasi Pembayaran QRIS (Metode 1)**: Pengiriman gambar QRIS asli toko, verifikasi transfer akurat, dan konfirmasi barang diterima oleh pembeli.
 - 🚨 **Sistem Panggilan Darurat Admin (SOS)**: Tombol panggil Admin cepat untuk pembeli yang membutuhkan bantuan langsung di channel tiket.
-- 🏆 **Papan Peringkat Live Top Spenders (`/topspender`)**: Leaderboard 10 pembeli terbanyak yang ter-update otomatis secara real-time di channel terpisah (`#leaderboard`).
+- 🏆 **Papan Peringkat Live Top Spenders (`/leaderboard`)**: Leaderboard 10 pembeli terbanyak yang ter-update otomatis secara real-time di channel terpisah (`#leaderboard`).
 - 📊 **Laporan Excel Bulanan Otomatis (`/exportreport`)**: Pengiriman otomatis laporan rekapitulasi penjualan bulanan format Excel (`nama_bulan-tahun.xlsx`) setiap tanggal 1 jam 00:05 WIB ke channel `#laporan`.
 - 🎨 **Sistem Pewarisan Ikon (Emoji) Produk & Kategori**: Item otomatis mewarisi emoji kategorinya jika tidak diberi emoji khusus.
 - 🛡️ **Keamanan Kunci & Proteksi Admin**: Sistem autentikasi bertingkat (Owner & Secondary Admin) dengan proteksi pembajakan akses.
@@ -36,9 +36,9 @@ payment-bot/
 │   ├── edititem.js
 │   ├── exportreport.js
 │   ├── help.js
+│   ├── leaderboard.js
 │   ├── listadmin.js
-│   ├── panel.js
-│   └── topspender.js
+│   └── panel.js
 ├── 📁 config/              # Konfigurasi Data Toko & Admin
 │   ├── admins.json
 │   ├── category_emojis.json
@@ -126,13 +126,13 @@ npm run deploy
 | Perintah | Deskripsi |
 | :--- | :--- |
 | `/help` | Menampilkan panduan cara berbelanja dan membuat tiket transaksi. |
-| `/topspender` | Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak. |
+| `/leaderboard` | Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak. |
 
 ### ⚙️ Perintah Admin Toko (Admin Commands)
 | Perintah | Deskripsi |
 | :--- | :--- |
 | `/panel` | Mengirimkan Pesan Panel Katalog Toko di channel toko (cth: `#beli-disini`). |
-| `/topspender` *(Admin)* | Mengirimkan & mendaftarkan Panel Live Leaderboard di channel terpisah (cth: `#leaderboard`). |
+| `/leaderboard` *(Admin)* | Mengirimkan & mendaftarkan Panel Live Leaderboard di channel terpisah (cth: `#leaderboard`). |
 | `/additem` | Menambah item baru ke katalog toko (nama, harga, username, kategori, emoji, deskripsi). |
 | `/edititem` | Mengubah detail item toko secara keseluruhan (dukungan reset emoji). |
 | `/delitem` | Menghapus item spesifik dari katalog toko. |

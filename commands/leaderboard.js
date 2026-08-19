@@ -5,7 +5,7 @@ const { saveLeaderboardLocation } = require('../services/panelManager');
 
 module.exports = {
 	data: new SlashCommandBuilder()
-		.setName('topspender')
+		.setName('leaderboard')
 		.setDescription('Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak (Admin: Pasang Panel Live)'),
 	async execute(interaction) {
 		const userIsAdmin = isAdmin(interaction.user.id);

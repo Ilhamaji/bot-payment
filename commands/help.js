@@ -8,7 +8,7 @@ module.exports = {
 		const helpDescription = 
 			`Selamat datang di **Bebey Store**! Berikut adalah daftar perintah (*Slash Commands*) publik yang dapat Anda gunakan:\n\n` +
 			`🛒 **PERINTAH PUBLIK / PEMBELI:**\n` +
-			`• **\`/topspender\`** — Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak.\n` +
+			`• **\`/leaderboard\`** — Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak.\n` +
 			`• **\`/help\`** — Menampilkan panduan bantuan pembeli ini.\n\n` +
 			`📌 **CARA MEMBELI PRODUK:**\n` +
 			`1️⃣ Pergi ke channel resmi toko Bebey Store.\n` +

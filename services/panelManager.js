@@ -331,7 +331,7 @@ async function updateGlobalPanel(client) {
             }
         } catch (e) {
             if (e.code === 10008 || e.status === 404) {
-                console.log('ℹ️ Pesan panel leaderboard lama di Discord telah dihapus/tidak ditemukan. Silakan jalankan /topspender kembali.');
+                console.log('ℹ️ Pesan panel leaderboard lama di Discord telah dihapus/tidak ditemukan. Silakan jalankan /leaderboard kembali.');
                 saveLeaderboardLocation(lbChanId, null);
             } else {
                 console.warn('Leaderboard message update notice:', e.message || e);
