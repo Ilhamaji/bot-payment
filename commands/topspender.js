@@ -1,42 +1,48 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { getTopSpenders } = require('../services/supabase');
+const { isAdmin } = require('../services/admins');
+const { saveLeaderboardLocation } = require('../services/panelManager');
 
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('topspender')
-		.setDescription('Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak'),
+		.setDescription('Menampilkan Papan Peringkat (Leaderboard) 10 Pembeli Terbanyak (Admin: Pasang Panel Live)'),
 	async execute(interaction) {
-		await interaction.deferReply();
-
+		const userIsAdmin = isAdmin(interaction.user.id);
 		const topSpenders = await getTopSpenders(10);
 
+		let description = `Berikut adalah daftar **10 Pembeli Terbanyak (Top Spenders)** di **Bebey Store** yang telah terverifikasi:\n\n`;
+
 		if (!topSpenders || topSpenders.length === 0) {
-			const emptyEmbed = new EmbedBuilder()
-				.setTitle('🏆  PAPAN PERINGKAT TOP SPENDER')
-				.setColor(0xF1C40F)
-				.setDescription('⚠️ Belum ada transaksi yang selesai (fulfilled) untuk ditampilkan.')
-				.setTimestamp();
-			return interaction.editReply({ embeds: [emptyEmbed] });
+			description += `*Belum ada transaksi terverifikasi (fulfilled).*`;
+		} else {
+			const medalEmojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+			topSpenders.forEach((spender, index) => {
+				const medal = medalEmojis[index] || '🎖️';
+				const cleanTag = spender.username.startsWith('@') ? spender.username : `@${spender.username}`;
+				description += `> ${medal} **${cleanTag}** — \`Rp ${spender.totalSpent.toLocaleString('id-ID')}\`\n`;
+			});
 		}
 
-		let description = 
-			`Berikut adalah daftar **10 Pembeli Terbanyak (Top Spenders)** di **Bebey Store** yang telah berhasil melakukan transaksi:\n\n`;
-
-		const medalEmojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-
-		topSpenders.forEach((spender, index) => {
-			const medal = medalEmojis[index] || '🎖️';
-			const cleanTag = spender.username.startsWith('@') ? spender.username : `@${spender.username}`;
-			description += `> ${medal} **${cleanTag}** — \`Rp ${spender.totalSpent.toLocaleString('id-ID')}\`\n`;
-		});
-
 		const embed = new EmbedBuilder()
-			.setTitle('🏆  BEBEY STORE — LEADERBOARD TOP SPENDER')
+			.setTitle('🏆  BEBEY STORE — OFFICIAL LEADERBOARD TOP SPENDERS')
 			.setColor(0xF1C40F)
 			.setDescription(description.trim())
 			.setTimestamp()
-			.setFooter({ text: '⚡ Bebey Store Official • Real-Time Leaderboard System' });
+			.setFooter({ text: '⚡ Bebey Store Official • Auto-Refreshed Live Leaderboard' });
 
-		await interaction.editReply({ embeds: [embed] });
+		if (userIsAdmin) {
+			// Admin Mode: Pasang Pesan Live Leaderboard Permanen di Channel Ini
+			const lbMessage = await interaction.channel.send({ embeds: [embed] });
+			saveLeaderboardLocation(interaction.channelId, lbMessage.id);
+
+			return interaction.reply({
+				content: `✅ **Panel Live Leaderboard berhasil dikirim ke #${interaction.channel.name}!** Pesan ini akan otomatis ter-update real-time setiap kali transaksi selesai.`,
+				flags: MessageFlags.Ephemeral
+			});
+		} else {
+			// Public Buyer Mode: Tampilkan balasan ephemeral
+			return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+		}
 	},
 };

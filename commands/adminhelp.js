@@ -15,7 +15,8 @@ module.exports = {
 		let adminDescription = 
 			`Berikut adalah daftar lengkap perintah kelola toko (*Admin Slash Commands*) di **Bebey Store**:\n\n` +
 			`⚙️ **PERINTAH KELOLA TOKO & PRODUK:**\n` +
-			`• **\`/panel\`** — Mengirimkan 2 Pesan Panel Toko (Leaderboard Live & Katalog Dropdown) ke channel toko.\n` +
+			`• **\`/panel\`** — Mengirimkan Pesan Panel Katalog Toko di channel toko (misal #beli-disini).\n` +
+			`• **\`/topspender\`** — Mengirimkan Pesan Panel Live Leaderboard di channel terpisah (misal #leaderboard).\n` +
 			`• **\`/edititem\`** \`<item> [nama] [harga] [username] [kategori] [emoji] [deskripsi]\` — Mengubah detail item toko secara keseluruhan.\n` +
 			`• **\`/additem\`** \`<id> <nama> <harga> <username> [emoji] [deskripsi] [kategori]\` — Menambah item baru ke katalog toko.\n` +
 			`• **\`/delitem\`** \`<item>\` — Menghapus item spesifik dari katalog toko.\n` +

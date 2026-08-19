@@ -91,26 +91,48 @@ function parseEmoji(emojiStr) {
 }
 
 /**
- * Simpan lokasi dua pesan panel toko (Leaderboard & Catalog)
+ * Ambil konfigurasi lokasi panel toko & leaderboard
  */
-function savePanelLocation(channelId, leaderboardMessageId, catalogMessageId) {
+function getPanelLocation() {
     try {
-        fs.writeFileSync(configFile, JSON.stringify({ channelId, leaderboardMessageId, catalogMessageId }, null, 4), 'utf8');
+        if (!fs.existsSync(configFile)) return {};
+        return JSON.parse(fs.readFileSync(configFile, 'utf8')) || {};
     } catch (err) {
-        console.error('Error saving panel config:', err);
+        return {};
     }
 }
 
 /**
- * Ambil lokasi pesan panel toko
+ * Simpan lokasi pesan panel katalog toko
  */
-function getPanelLocation() {
+function saveCatalogLocation(channelId, catalogMessageId) {
     try {
-        if (!fs.existsSync(configFile)) return null;
-        return JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const current = getPanelLocation();
+        current.catalogChannelId = channelId;
+        current.catalogMessageId = catalogMessageId;
+        fs.writeFileSync(configFile, JSON.stringify(current, null, 4), 'utf8');
     } catch (err) {
-        return null;
+        console.error('Error saving catalog panel config:', err);
     }
+}
+
+/**
+ * Simpan lokasi pesan leaderboard top spender
+ */
+function saveLeaderboardLocation(channelId, leaderboardMessageId) {
+    try {
+        const current = getPanelLocation();
+        current.leaderboardChannelId = channelId;
+        current.leaderboardMessageId = leaderboardMessageId;
+        fs.writeFileSync(configFile, JSON.stringify(current, null, 4), 'utf8');
+    } catch (err) {
+        console.error('Error saving leaderboard panel config:', err);
+    }
+}
+
+function savePanelLocation(channelId, leaderboardMessageId, catalogMessageId) {
+    if (catalogMessageId) saveCatalogLocation(channelId, catalogMessageId);
+    if (leaderboardMessageId) saveLeaderboardLocation(channelId, leaderboardMessageId);
 }
 
 /**
@@ -141,7 +163,6 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
     currentRow.addComponents(allBtn);
 
     categories.forEach(cat => {
-        // Jika baris saat ini sudah penuh (5 tombol per ActionRow Discord), buat baris ActionRow baru
         if (currentRow.components.length >= 5) {
             rows.push(currentRow);
             currentRow = new ActionRowBuilder();
@@ -159,12 +180,11 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
         rows.push(currentRow);
     }
 
-    // Maksimal 4 ActionRows untuk tombol kategori
     return rows.slice(0, 4);
 }
 
 /**
- * Membuat Embed dan Components Panel Katalog Terelompok Rapi (Static / Ephemeral Compatible)
+ * Membuat Embed dan Components Panel Katalog Terelompok Rapi
  */
 function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
     const categories = getUniqueCategories(items);
@@ -221,7 +241,7 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
         .setTimestamp()
         .setFooter({ text: '⚡ Bebey Store Official • Automatic 24/7 Ticketing System' });
 
-    // Baris 1-4: Tombol Kategori Filter (Sub-Menu Dinamis Auto-Update)
+    // Baris 1-4: Tombol Kategori Filter
     const categoryRows = buildCategoryButtons(categories, selectedCategory);
 
     return {
@@ -231,21 +251,44 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
 }
 
 /**
- * Auto-update dua pesan panel toko (Leaderboard & Katalog Publik) di Discord secara real-time
+ * Auto-update pesan panel toko & leaderboard di Discord secara real-time di channel masing-masing
  */
 async function updateGlobalPanel(client) {
     const loc = getPanelLocation();
-    if (!loc || !loc.channelId) return;
+    if (!loc) return;
 
-    try {
-        const channel = await client.channels.fetch(loc.channelId);
-        if (!channel) return;
+    // 1. UPDATE KATALOG PANEL TOKO (#beli-disini)
+    const catChanId = loc.catalogChannelId || loc.channelId;
+    const catMsgId = loc.catalogMessageId;
 
-        // 1. UPDATE MESSAGE 1: LEADERBOARD TOP SPENDERS
-        const leaderboardMsgId = loc.leaderboardMessageId;
-        if (leaderboardMsgId) {
-            try {
-                const lbMessage = await channel.messages.fetch(leaderboardMsgId);
+    if (catChanId && catMsgId) {
+        try {
+            const catChannel = await client.channels.fetch(catChanId);
+            if (catChannel) {
+                const catMessage = await catChannel.messages.fetch(catMsgId);
+                if (catMessage) {
+                    delete require.cache[require.resolve('../config/items')];
+                    const items = require('../config/items');
+                    const { embeds, components } = buildCatalogPanelComponents(items, 'ALL');
+
+                    await catMessage.edit({ embeds, components });
+                    console.log(`[AUTO-PANEL UPDATE] Katalog toko di #${catChannel.name} berhasil di-update real-time!`);
+                }
+            }
+        } catch (e) {
+            console.warn('Catalog message not found or fail to edit:', e);
+        }
+    }
+
+    // 2. UPDATE LEADERBOARD TOP SPENDERS (#leaderboard)
+    const lbChanId = loc.leaderboardChannelId || loc.channelId;
+    const lbMsgId = loc.leaderboardMessageId;
+
+    if (lbChanId && lbMsgId) {
+        try {
+            const lbChannel = await client.channels.fetch(lbChanId);
+            if (lbChannel) {
+                const lbMessage = await lbChannel.messages.fetch(lbMsgId);
                 if (lbMessage) {
                     const { getTopSpenders } = require('./supabase');
                     const topSpenders = await getTopSpenders(10);
@@ -270,36 +313,17 @@ async function updateGlobalPanel(client) {
                         .setFooter({ text: '🏆 Bebey Store Official • Live Leaderboard' });
 
                     await lbMessage.edit({ embeds: [lbEmbed] });
+                    console.log(`[AUTO-PANEL UPDATE] Leaderboard di #${lbChannel.name} berhasil di-update real-time!`);
                 }
-            } catch (e) {
-                console.warn('Leaderboard message not found or fail to edit:', e);
             }
+        } catch (e) {
+            console.warn('Leaderboard message not found or fail to edit:', e);
         }
-
-        // 2. UPDATE MESSAGE 2: KATALOG RESMI GROUPED
-        const catalogMsgId = loc.catalogMessageId;
-        if (catalogMsgId) {
-            try {
-                const catMessage = await channel.messages.fetch(catalogMsgId);
-                if (catMessage) {
-                    delete require.cache[require.resolve('../config/items')];
-                    const items = require('../config/items');
-                    const { embeds, components } = buildCatalogPanelComponents(items, 'ALL');
-
-                    await catMessage.edit({ embeds, components });
-                    console.log(`[AUTO-PANEL UPDATE] Dual messages (Leaderboard & Katalog Grouped) di #${channel.name} berhasil di-update real-time!`);
-                }
-            } catch (e) {
-                console.warn('Catalog message not found or fail to edit:', e);
-            }
-        }
-    } catch (err) {
-        console.error('Error during global panel auto-update:', err);
     }
 }
 
 /**
- * Membuat Sub-Menu Ringkas (Tanpa Embed Duplikat) Khusus Balasan Ephemeral Tombol Kategori
+ * Membuat Sub-Menu Ringkas Khusus Balasan Ephemeral Tombol Kategori
  */
 function buildCategorySubMenuEphemeral(items, catName) {
     const filteredItems = catName === 'ALL' 
@@ -344,6 +368,8 @@ function buildCategorySubMenuEphemeral(items, catName) {
 
 module.exports = {
     savePanelLocation,
+    saveCatalogLocation,
+    saveLeaderboardLocation,
     getPanelLocation,
     updateGlobalPanel,
     buildCatalogPanelComponents,
