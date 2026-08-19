@@ -169,43 +169,9 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
         .setTimestamp()
         .setFooter({ text: '⚡ Bebey Store Official • Automatic 24/7 Ticketing System' });
 
-    // Baris 1-4: Tombol Kategori Filter (Sub-Menu Dinamis Auto-Update)
-    const categoryRows = buildCategoryButtons(categories, selectedCategory);
-
-    // Baris Terakhir: Dropdown Menu Produk Filtered
-    const filteredList = selectedCategory === 'ALL' 
-        ? items 
-        : items.filter(i => (i.category || 'General').toLowerCase() === selectedCategory.toLowerCase());
-    
-    const selectItemsList = filteredList.length > 0 ? filteredList : items;
-
-    const selectOptions = selectItemsList.map(item => {
-        const parsed = parseEmoji(item.emoji);
-        const opt = new StringSelectMenuOptionBuilder()
-            .setLabel(`${item.name}`)
-            .setValue(item.id)
-            .setDescription(`[${item.category || 'General'}] Rp ${item.price.toLocaleString('id-ID')}`);
-
-        if (parsed.option) {
-            try {
-                opt.setEmoji(parsed.option);
-            } catch (e) {
-                opt.setEmoji('📦');
-            }
-        }
-        return opt;
-    });
-
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('select_shop_item')
-        .setPlaceholder(`🛒 Pilih Produk (${selectedCategory === 'ALL' ? 'Semua Kategori' : selectedCategory})...`)
-        .addOptions(selectOptions);
-
-    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-
     return {
         embeds: [catEmbed],
-        components: [...categoryRows, selectRow]
+        components: [...categoryRows] // HANYA TOMBOL KATEGORI (Dropdown pilihan produk dibuka via tombol kategori)
     };
 }
 
