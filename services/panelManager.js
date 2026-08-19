@@ -3,6 +3,72 @@ const path = require('node:path');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 
 const configFile = path.join(__dirname, '../config/panel_config.json');
+const categoryConfigFile = path.join(__dirname, '../config/category_emojis.json');
+
+/**
+ * Membaca daftar emoji kategori dari config/category_emojis.json
+ */
+function getAllCategoryEmojis() {
+    try {
+        if (!fs.existsSync(categoryConfigFile)) {
+            return {
+                'Robux': '💎',
+                'Passes': '🚀',
+                'Game Items': '🎣',
+                'Services': '⚡',
+                'General': '📦'
+            };
+        }
+        return JSON.parse(fs.readFileSync(categoryConfigFile, 'utf8'));
+    } catch (err) {
+        return {
+            'Robux': '💎',
+            'Passes': '🚀',
+            'Game Items': '🎣',
+            'Services': '⚡',
+            'General': '📦'
+        };
+    }
+}
+
+/**
+ * Mendapatkan emoji kategori (default ke 📁 jika belum diset)
+ */
+function getCategoryEmoji(categoryName) {
+    const emojis = getAllCategoryEmojis();
+    if (emojis && categoryName && emojis[categoryName]) {
+        return emojis[categoryName];
+    }
+    return '📁';
+}
+
+/**
+ * Menyimpan / memperbarui emoji kategori ke config/category_emojis.json
+ */
+function setCategoryEmoji(categoryName, emoji) {
+    if (!categoryName) return;
+    const emojis = getAllCategoryEmojis();
+    if (emoji && emoji.trim() !== '') {
+        emojis[categoryName] = emoji.trim();
+    } else if (!emojis[categoryName]) {
+        emojis[categoryName] = '📁';
+    }
+    try {
+        fs.writeFileSync(categoryConfigFile, JSON.stringify(emojis, null, 4), 'utf8');
+    } catch (err) {
+        console.error('Error saving category emojis config:', err);
+    }
+}
+
+/**
+ * Mendapatkan emoji item (jika item tidak punya emoji khusus, mewarisi emoji kategorinya)
+ */
+function getItemEmoji(item) {
+    if (item && item.emoji && item.emoji.trim() !== '') {
+        return item.emoji.trim();
+    }
+    return getCategoryEmoji(item ? item.category : 'General');
+}
 
 /**
  * Helper untuk parse Emoji Unicode maupun Custom Discord Emoji (<:name:id>)
@@ -74,14 +140,6 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
         .setStyle(selectedCategory === 'ALL' ? ButtonStyle.Primary : ButtonStyle.Secondary);
     currentRow.addComponents(allBtn);
 
-    const categoryEmojis = {
-        'Robux': '💎',
-        'Passes': '🚀',
-        'Game Items': '🎣',
-        'Services': '⚡',
-        'General': '📦'
-    };
-
     categories.forEach(cat => {
         // Jika baris saat ini sudah penuh (5 tombol per ActionRow Discord), buat baris ActionRow baru
         if (currentRow.components.length >= 5) {
@@ -89,7 +147,7 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
             currentRow = new ActionRowBuilder();
         }
 
-        const emoji = categoryEmojis[cat] || '📁';
+        const emoji = getCategoryEmoji(cat);
         const btn = new ButtonBuilder()
             .setCustomId(`cat_filter_${cat}`)
             .setLabel(`${emoji} ${cat}`)
@@ -101,7 +159,7 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
         rows.push(currentRow);
     }
 
-    // Maksimal 4 ActionRows untuk tombol kategori agar tersisa 1 ActionRow untuk Dropdown Select Menu
+    // Maksimal 4 ActionRows untuk tombol kategori
     return rows.slice(0, 4);
 }
 
@@ -122,21 +180,14 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
     let catalogDescription = 
         `Selamat datang di **Bebey Store**! Silakan pilih produk melalui menu dropdown di bawah untuk membuat tiket transaksi privat.\n\n`;
 
-    const categoryEmojis = {
-        'Robux': '💎',
-        'Passes': '🚀',
-        'Game Items': '🎣',
-        'Services': '⚡',
-        'General': '📦'
-    };
-
     if (selectedCategory === 'ALL') {
         // Tampilkan semua item terelompok per kategori
         Object.keys(grouped).forEach(catName => {
-            const emoji = categoryEmojis[catName] || '📁';
+            const emoji = getCategoryEmoji(catName);
             catalogDescription += `> ${emoji} **KATEGORI: ${catName.toUpperCase()}**\n`;
             grouped[catName].forEach(item => {
-                const parsed = parseEmoji(item.emoji);
+                const itemEmoji = getItemEmoji(item);
+                const parsed = parseEmoji(itemEmoji);
                 catalogDescription += `└ ${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
             });
             catalogDescription += `\n`;
@@ -144,14 +195,15 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
     } else {
         // Tampilkan item kategori spesifik saja
         const filteredItems = items.filter(i => (i.category || 'General').toLowerCase() === selectedCategory.toLowerCase());
-        const emoji = categoryEmojis[selectedCategory] || '📁';
+        const emoji = getCategoryEmoji(selectedCategory);
         catalogDescription += `> ${emoji} **KATEGORI TERPILIH: ${selectedCategory.toUpperCase()}**\n\n`;
 
         if (filteredItems.length === 0) {
             catalogDescription += `*Belum ada produk untuk kategori ini.*\n`;
         } else {
             filteredItems.forEach(item => {
-                const parsed = parseEmoji(item.emoji);
+                const itemEmoji = getItemEmoji(item);
+                const parsed = parseEmoji(itemEmoji);
                 catalogDescription += `${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
                 if (item.description) {
                     catalogDescription += `└ *${item.description}*\n\n`;
@@ -174,7 +226,7 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
 
     return {
         embeds: [catEmbed],
-        components: [...categoryRows] // HANYA TOMBOL KATEGORI (Dropdown pilihan produk dibuka via tombol kategori)
+        components: [...categoryRows]
     };
 }
 
@@ -211,46 +263,38 @@ async function updateGlobalPanel(client) {
                     }
 
                     const lbEmbed = new EmbedBuilder()
-                        .setTitle('🏆  BEBEY STORE — OFFICIAL LEADERBOARD TOP SPENDERS')
+                        .setTitle('🏆  BEBEY STORE — TOP SPENDERS LEADERBOARD')
                         .setColor(0xF1C40F)
                         .setDescription(lbDescription.trim())
                         .setTimestamp()
-                        .setFooter({ text: '⚡ Bebey Store Official • Auto-Refreshed Live Leaderboard' });
+                        .setFooter({ text: '🏆 Bebey Store Official • Live Leaderboard' });
 
                     await lbMessage.edit({ embeds: [lbEmbed] });
                 }
-            } catch (err) {}
+            } catch (e) {
+                console.warn('Leaderboard message not found or fail to edit:', e);
+            }
         }
 
-        // 2. UPDATE MESSAGE 2: KATALOG PUBLIK (SELALU STABIL 'ALL')
-        const catalogMsgId = loc.catalogMessageId || loc.messageId;
+        // 2. UPDATE MESSAGE 2: KATALOG RESMI GROUPED
+        const catalogMsgId = loc.catalogMessageId;
         if (catalogMsgId) {
             try {
                 const catMessage = await channel.messages.fetch(catalogMsgId);
                 if (catMessage) {
                     delete require.cache[require.resolve('../config/items')];
                     const items = require('../config/items');
+                    const { embeds, components } = buildCatalogPanelComponents(items, 'ALL');
 
-                    if (items.length === 0) {
-                        const emptyEmbed = new EmbedBuilder()
-                            .setTitle('🏪  BEBEY STORE — KATALOG TOKO')
-                            .setColor(0x5865F2)
-                            .setDescription('⚠️ Katalog toko saat ini belum memiliki item.')
-                            .setTimestamp();
-                        await catMessage.edit({ embeds: [emptyEmbed], components: [] });
-                        return;
-                    }
-
-                    // Pesan publik di channel toko selalu stabil menampilkan tampilan ALL (Semua Kategori terelompok rapi)
-                    const panelData = buildCatalogPanelComponents(items, 'ALL');
-                    await catMessage.edit(panelData);
+                    await catMessage.edit({ embeds, components });
+                    console.log(`[AUTO-PANEL UPDATE] Dual messages (Leaderboard & Katalog Grouped) di #${channel.name} berhasil di-update real-time!`);
                 }
-            } catch (err) {}
+            } catch (e) {
+                console.warn('Catalog message not found or fail to edit:', e);
+            }
         }
-
-        console.log(`[AUTO-PANEL UPDATE] Dual messages (Leaderboard & Katalog Grouped) di #${channel.name} berhasil di-update real-time!`);
     } catch (err) {
-        console.warn('⚠️ Tidak dapat me-refresh pesan panel toko.');
+        console.error('Error during global panel auto-update:', err);
     }
 }
 
@@ -258,28 +302,18 @@ async function updateGlobalPanel(client) {
  * Membuat Sub-Menu Ringkas (Tanpa Embed Duplikat) Khusus Balasan Ephemeral Tombol Kategori
  */
 function buildCategorySubMenuEphemeral(items, catName) {
-    const categories = getUniqueCategories(items);
-    const categoryRows = buildCategoryButtons(categories, catName);
-
-    const categoryEmojis = {
-        'Robux': '💎',
-        'Passes': '🚀',
-        'Game Items': '🎣',
-        'Services': '⚡',
-        'General': '📦'
-    };
-
     const filteredItems = catName === 'ALL' 
         ? items 
         : items.filter(i => (i.category || 'General').toLowerCase() === catName.toLowerCase());
 
-    const emoji = categoryEmojis[catName] || '📁';
+    const emoji = getCategoryEmoji(catName);
     const content = `📁 **KATEGORI TERPILIH: ${emoji} ${catName === 'ALL' ? 'SEMUA PRODUK' : catName.toUpperCase()}**\nSilakan pilih produk dari menu dropdown di bawah untuk membuat tiket transaksi:`;
 
     const selectItemsList = filteredItems.length > 0 ? filteredItems : items;
 
     const selectOptions = selectItemsList.map(item => {
-        const parsed = parseEmoji(item.emoji);
+        const itemEmoji = getItemEmoji(item);
+        const parsed = parseEmoji(itemEmoji);
         const opt = new StringSelectMenuOptionBuilder()
             .setLabel(`${item.name}`)
             .setValue(item.id)
@@ -304,7 +338,7 @@ function buildCategorySubMenuEphemeral(items, catName) {
 
     return {
         content: content,
-        components: [selectRow] // HANYA DROPDOWN MENU (Tanpa tombol kategori di balasan privat!)
+        components: [selectRow]
     };
 }
 
@@ -314,5 +348,9 @@ module.exports = {
     updateGlobalPanel,
     buildCatalogPanelComponents,
     buildCategorySubMenuEphemeral,
+    getAllCategoryEmojis,
+    getCategoryEmoji,
+    setCategoryEmoji,
+    getItemEmoji,
     parseEmoji
 };

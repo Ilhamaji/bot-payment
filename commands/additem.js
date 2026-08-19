@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAdmin } = require('../services/admins');
+const { setCategoryEmoji, getCategoryEmoji, getItemEmoji } = require('../services/panelManager');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -30,7 +31,11 @@ module.exports = {
 				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('emoji')
-				.setDescription('Emoji untuk item (cth: 💎, ⚔️, 🚀)')
+				.setDescription('Emoji khusus item (Kosongkan jika ingin mengikuti emoji kategori)')
+				.setRequired(false))
+		.addStringOption(option =>
+			option.setName('emoji_kategori')
+				.setDescription('Set/Ubah Emoji untuk Kategori ini (cth: 💎, 🚀, 👑)')
 				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('deskripsi')
@@ -50,8 +55,17 @@ module.exports = {
 		const requireUsername = interaction.options.getBoolean('username');
 		const categoryInput = interaction.options.getString('kategori');
 		const kategori = categoryInput && categoryInput.trim() !== '' ? categoryInput.trim() : 'General';
-		const emoji = interaction.options.getString('emoji') || '📦';
+		const itemEmojiInput = interaction.options.getString('emoji');
+		const emojiKategoriInput = interaction.options.getString('emoji_kategori');
 		const deskripsi = interaction.options.getString('deskripsi') || 'Produk Bebey Store';
+
+		// Jika emoji_kategori diisi, update/set emoji kategori
+		if (emojiKategoriInput && emojiKategoriInput.trim() !== '') {
+			setCategoryEmoji(kategori, emojiKategoriInput.trim());
+		}
+
+		// Jika item emoji diisi -> gunakan item emoji. Jika tidak -> kosongkan agar getItemEmoji mewarisi emoji kategori
+		const itemEmoji = itemEmojiInput && itemEmojiInput.trim() !== '' ? itemEmojiInput.trim() : '';
 
 		// Load items segar tanpa cache
 		const itemsFilePath = path.join(__dirname, '../config/items.js');
@@ -73,7 +87,7 @@ module.exports = {
 			price: harga,
 			category: kategori,
 			description: deskripsi,
-			emoji: emoji,
+			emoji: itemEmoji,
 			requireUsername: requireUsername
 		};
 
@@ -88,15 +102,18 @@ module.exports = {
 			// Clear cache lagi
 			delete require.cache[require.resolve('../config/items')];
 
+			const effectiveEmoji = getItemEmoji(newItem);
+			const catEmoji = getCategoryEmoji(kategori);
+
 			const embed = new EmbedBuilder()
 				.setTitle('➕  ADMIN PANEL: TAMBAH ITEM BARU')
 				.setColor(0x00FF00)
 				.setDescription(`Berhasil menambahkan item baru ke katalog toko!`)
 				.addFields(
-					{ name: 'Nama Item', value: `${emoji} **${nama}**`, inline: true },
+					{ name: 'Nama Item', value: `${effectiveEmoji} **${nama}**`, inline: true },
 					{ name: 'Harga', value: `**Rp ${harga.toLocaleString('id-ID')}**`, inline: true },
 					{ name: 'ID Item', value: `\`${id}\``, inline: true },
-					{ name: 'Kategori', value: `📁 \`${kategori}\``, inline: true },
+					{ name: 'Kategori', value: `${catEmoji} \`${kategori}\``, inline: true },
 					{ name: 'Input Username', value: requireUsername ? '`✅ Ya (Diperlukan)`' : '`❌ Tidak Perlu`', inline: true },
 					{ name: 'Deskripsi / Keterangan', value: `${deskripsi}`, inline: false }
 				)

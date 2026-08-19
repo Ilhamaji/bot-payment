@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAdmin } = require('../services/admins');
+const { setCategoryEmoji, getCategoryEmoji, getItemEmoji } = require('../services/panelManager');
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -31,7 +32,11 @@ module.exports = {
 				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('emoji')
-				.setDescription('Emoji produk baru (cth: 💎, 🚀, 📦)')
+				.setDescription('Emoji khusus produk (Ketik RESET jika ingin mengikuti emoji kategori)')
+				.setRequired(false))
+		.addStringOption(option =>
+			option.setName('emoji_kategori')
+				.setDescription('Set/Ubah Emoji untuk Kategori dari item ini (cth: 👑, 💎)')
 				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('deskripsi')
@@ -47,7 +52,7 @@ module.exports = {
 			choice.id.toLowerCase().includes(focusedValue)
 		);
 		await interaction.respond(
-			filtered.slice(0, 25).map(choice => ({ name: `${choice.emoji || '📦'} ${choice.name} (Rp ${choice.price.toLocaleString('id-ID')})`, value: choice.id }))
+			filtered.slice(0, 25).map(choice => ({ name: `${getItemEmoji(choice)} ${choice.name} (Rp ${choice.price.toLocaleString('id-ID')})`, value: choice.id }))
 		);
 	},
 
@@ -64,6 +69,7 @@ module.exports = {
 		const newUsernameReq = interaction.options.getBoolean('username');
 		const newCategory = interaction.options.getString('kategori');
 		const newEmoji = interaction.options.getString('emoji');
+		const newCategoryEmoji = interaction.options.getString('emoji_kategori');
 		const newDesc = interaction.options.getString('deskripsi');
 
 		const itemsFilePath = path.join(__dirname, '../config/items.js');
@@ -97,9 +103,21 @@ module.exports = {
 			targetItem.category = newCategory.trim();
 		}
 
-		if (newEmoji && newEmoji.trim() !== '') {
-			changes.push(`• **Emoji:** \`${targetItem.emoji || '📦'}\` ➔ ${newEmoji.trim()}`);
-			targetItem.emoji = newEmoji.trim();
+		if (newEmoji !== null && newEmoji !== undefined) {
+			const cleanEmoji = newEmoji.trim();
+			if (cleanEmoji.toUpperCase() === 'RESET' || cleanEmoji.toUpperCase() === 'DELETE') {
+				changes.push(`• **Emoji Item:** Reset ke emoji kategori (${getCategoryEmoji(targetItem.category)})`);
+				targetItem.emoji = '';
+			} else if (cleanEmoji !== '') {
+				changes.push(`• **Emoji Item:** \`${targetItem.emoji || 'Mewarisi'}\` ➔ ${cleanEmoji}`);
+				targetItem.emoji = cleanEmoji;
+			}
+		}
+
+		if (newCategoryEmoji && newCategoryEmoji.trim() !== '') {
+			const cat = targetItem.category || 'General';
+			setCategoryEmoji(cat, newCategoryEmoji.trim());
+			changes.push(`• **Emoji Kategori (${cat}):** ➔ ${newCategoryEmoji.trim()}`);
 		}
 
 		if (newDesc && newDesc.trim() !== '') {
