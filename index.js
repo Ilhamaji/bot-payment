@@ -2,9 +2,11 @@ require('dotenv').config();
 
 // Anti-Crash Process Handlers (Cegah Bot Exit dari Unknown Interaction / Network Lag)
 process.on('unhandledRejection', (reason, promise) => {
+	if (reason && (reason.code === 10062 || reason.code === 10003 || reason.status === 404)) return;
 	console.warn('⚠️ [ANTI-CRASH] Unhandled Rejection:', reason);
 });
 process.on('uncaughtException', (err, origin) => {
+	if (err && (err.code === 10062 || err.code === 10003 || err.status === 404)) return;
 	console.error('⚠️ [ANTI-CRASH] Uncaught Exception:', err);
 });
 
@@ -1309,6 +1311,10 @@ client.on(Events.InteractionCreate, async interaction => {
 		if (interaction.customId.startsWith('save_dm_proof_')) {
 			const orderId = interaction.customId.replace('save_dm_proof_', '');
 
+			try {
+				await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+			} catch (e) {}
+
 			const { supabase } = require('./services/supabase');
 			const { data: purchase } = await supabase.from('purchases').select('*').eq('order_id', orderId).single();
 
@@ -1380,15 +1386,15 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			try {
 				await interaction.user.send({ embeds: embedsToSend });
-				await interaction.reply({
-					content: `📩 **BERHASIL!** Struk bukti transaksi dan foto bukti pengiriman telah dikirimkan ke **Direct Message (DM)** Anda! Silakan periksa DM Discord Anda.`,
-					flags: MessageFlags.Ephemeral
+				await interaction.editReply({
+					content: `📩 **BERHASIL!** Struk bukti transaksi dan foto bukti pengiriman telah dikirimkan ke **Direct Message (DM)** Anda! Silakan periksa DM Discord Anda.`
 				});
 			} catch (dmErr) {
-				await interaction.reply({
-					content: `⚠️ **GAGAL MENGIRIM DM!**\n> Mohon buka **Pengaturan Privasi Discord** Anda (Izinkan Direct Messages dari Anggota Server) lalu coba tekan tombol ini lagi.`,
-					flags: MessageFlags.Ephemeral
-				});
+				try {
+					await interaction.editReply({
+						content: `⚠️ **GAGAL MENGIRIM DM!**\n> Mohon buka **Pengaturan Privasi Discord** Anda (Izinkan Direct Messages dari Anggota Server) lalu coba tekan tombol ini lagi.`
+					});
+				} catch (e) {}
 			}
 			return;
 		}
