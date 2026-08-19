@@ -22,14 +22,14 @@ module.exports = {
 			`• **\`/delitem\`** \`<item>\` — Menghapus item spesifik dari katalog toko.\n` +
 			`• **\`/delcategory\`** \`<kategori>\` — Menghapus seluruh kategori beserta item di dalamnya dari katalog toko.\n` +
 			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk (Live Update ke Panel).\n` +
-			`• **\`/exportreport\`** \`[bulan] [tahun]\` — Mengunduh rekapitulasi laporan penjualan resmi format Excel (.xlsx).\n\n`;
+			`• **\`/exportreport\`** \`[bulan] [tahun]\` — Mengunduh rekapitulasi laporan penjualan resmi format Excel (.xlsx).\n` +
+			`• **\`/listadmin\`** — Menampilkan daftar Owner & Admin Sekunder yang terdaftar.\n\n`;
 
 		if (userIsOwner) {
 			adminDescription += 
 				`👑 **PERINTAH KHUSUS ADMIN UTAMA (OWNER):**\n` +
 				`• **\`/addadmin\`** \`<@user>\` — Mengangkat Admin Sekunder baru untuk membantu mengelola toko.\n` +
-				`• **\`/deladmin\`** \`<@user>\` — Mencabut hak akses Admin Sekunder.\n` +
-				`• **\`/listadmin\`** — Menampilkan daftar Owner & Admin Sekunder yang terdaftar.\n\n`;
+				`• **\`/deladmin\`** \`<@user>\` — Mencabut hak akses Admin Sekunder.\n\n`;
 		}
 
 		adminDescription += 

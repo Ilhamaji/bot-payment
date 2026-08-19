@@ -1,11 +1,18 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getAdmins } = require('../services/admins');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { getAdmins, isAdmin } = require('../services/admins');
 
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName('listadmin')
-		.setDescription('Menampilkan daftar Admin toko yang terdaftar'),
+		.setDescription('[ADMIN] Menampilkan daftar Admin toko (Owner & Admin Sekunder) yang terdaftar'),
 	async execute(interaction) {
+		if (!isAdmin(interaction.user.id)) {
+			return interaction.reply({ 
+				content: '❌ **AKSES DITOLAK!** Hanya Admin toko yang dapat melihat daftar Admin.', 
+				flags: MessageFlags.Ephemeral 
+			});
+		}
+
 		const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
 		const adminList = getAdmins();
 
@@ -36,6 +43,6 @@ module.exports = {
 			.setTimestamp()
 			.setFooter({ text: '⚡ Bebey Store Official • Security Management' });
 
-		await interaction.reply({ embeds: [embed] });
+		await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 	},
 };
