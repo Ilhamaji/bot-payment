@@ -25,6 +25,14 @@ module.exports = {
 			option.setName('username')
 				.setDescription('Apakah memerlukan input Username Roblox? (True = Ya, False = Tidak)')
 				.setRequired(true))
+		.addBooleanOption(option =>
+			option.setName('cek_limit')
+				.setDescription('Apakah memerlukan Cek Limit Roblox? (True = Ya, False = Tidak)')
+				.setRequired(false))
+		.addStringOption(option =>
+			option.setName('catatan_tiket')
+				.setDescription('Catatan khusus produk di tiket (pisahkan poin dengan \\n atau teks bebas)')
+				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('kategori')
 				.setDescription('Kategori produk (cth: Robux, Gamepass, Items, Service)')
@@ -53,6 +61,8 @@ module.exports = {
 		const nama = interaction.options.getString('nama').trim();
 		const harga = interaction.options.getInteger('harga');
 		const requireUsername = interaction.options.getBoolean('username');
+		const requireLimitCheck = interaction.options.getBoolean('cek_limit');
+		const catatanTiket = interaction.options.getString('catatan_tiket');
 		const categoryInput = interaction.options.getString('kategori');
 		const kategori = categoryInput && categoryInput.trim() !== '' ? categoryInput.trim() : 'General';
 		const itemEmojiInput = interaction.options.getString('emoji');
@@ -90,6 +100,14 @@ module.exports = {
 			emoji: itemEmoji,
 			requireUsername: requireUsername
 		};
+
+		if (requireLimitCheck !== null && requireLimitCheck !== undefined) {
+			newItem.requireLimitCheck = requireLimitCheck;
+		}
+
+		if (catatanTiket && catatanTiket.trim() !== '') {
+			newItem.notes = catatanTiket.trim();
+		}
 
 		items.push(newItem);
 

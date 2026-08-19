@@ -875,8 +875,19 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			await interaction.update({ embeds: [updatedConfirmEmbed], components: [] });
 
-			// Kirim Pesan 3: Catatan Penting Via Username Embed Card
-			const notesDescription = 
+			// Ambil detail item dari Supabase & items.js
+			delete require.cache[require.resolve('./config/items')];
+			const catalogItems = require('./config/items');
+			const { supabase } = require('./services/supabase');
+			const { data: purchase } = await supabase.from('purchases').select('item_name').eq('order_id', orderId).single();
+
+			let selectedItem = null;
+			if (purchase) {
+				selectedItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
+			}
+
+			// Kirim Pesan 3: Catatan Penting Embed Card (Kustom per Item atau Bawaan)
+			let notesDescription = 
 				`Baca catatan ini sebentar sebelum lanjut ke pembayaran.\n\n` +
 				`• Pastikan **username** dan **display name** Roblox sudah sesuai dengan akun tujuan.\n` +
 				`• Mohon cek umur akun sebelum order. Untuk akun di bawah 18+, pastikan akun sudah terhubung dengan email parent.\n` +
@@ -886,8 +897,15 @@ client.on(Events.InteractionCreate, async interaction => {
 				`• Proses Via Username **15 menit – 240 menit** (maksimal 4 jam).\n\n` +
 				`Kalau datanya sudah sesuai, klik tombol di bawah untuk lanjut ke konfirmasi pesanan.`;
 
+			if (selectedItem && selectedItem.notes && selectedItem.notes.trim() !== '') {
+				notesDescription = 
+					`Baca catatan ini sebentar sebelum lanjut ke pembayaran.\n\n` +
+					selectedItem.notes.trim() + `\n\n` +
+					`Kalau datanya sudah sesuai, klik tombol di bawah untuk lanjut ke konfirmasi pesanan.`;
+			}
+
 			const notesEmbed = new EmbedBuilder()
-				.setTitle('📌  Catatan Penting Via Username')
+				.setTitle('📌  Catatan Penting')
 				.setColor(0xE91E63)
 				.setDescription(notesDescription.trim())
 				.setTimestamp()
@@ -916,6 +934,41 @@ client.on(Events.InteractionCreate, async interaction => {
 				.setTitle('✅  CATATAN DISETUJUI');
 
 			await interaction.update({ embeds: [updatedNotesEmbed], components: [] });
+
+			// Ambil detail item dari Supabase & items.js
+			delete require.cache[require.resolve('./config/items')];
+			const catalogItems = require('./config/items');
+			const { supabase } = require('./services/supabase');
+			const { data: purchase } = await supabase.from('purchases').select('item_name, price').eq('order_id', orderId).single();
+
+			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
+			let totalAmount = 20000;
+
+			if (purchase) {
+				totalAmount = purchase.price || 20000;
+				const foundItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
+				if (foundItem) {
+					selectedItem = foundItem;
+				} else {
+					selectedItem = { name: purchase.item_name, emoji: '📦' };
+				}
+			}
+
+			// Cek apakah item memerlukan tahap Cek Limit Roblox
+			const isRobuxCategory = selectedItem.category && selectedItem.category.toLowerCase().includes('robux');
+			const requireLimitCheck = selectedItem.requireLimitCheck !== undefined ? selectedItem.requireLimitCheck : isRobuxCategory;
+
+			if (!requireLimitCheck) {
+				// Skip limit check -> Langsung kirim Pesan QRIS Pembayaran!
+				const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
+				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
+
+				await interaction.channel.send({
+					embeds: qrisCard.embeds,
+					components: qrisCard.components
+				});
+				return;
+			}
 
 			// Kirim Pesan 4: Cek Limit Akun Dulu Yuk!
 			const limitDescription = 

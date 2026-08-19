@@ -8,7 +8,10 @@ module.exports = [
         "price": 35000,
         "category": "Services",
         "description": "Jasa GIG cepat dan terpercaya.",
-        "emoji": "⚡"
+        "emoji": "⚡",
+        "requireUsername": true,
+        "requireLimitCheck": false,
+        "notes": "• Pastikan akun Roblox Anda sudah dalam posisi siap di-process.\n• Proses pengerjaan jasa GIG sekitar 15 - 60 menit."
     },
     {
         "id": "ptpt",
@@ -17,7 +20,8 @@ module.exports = [
         "category": "Passes",
         "description": "Paket PTPT X8 spesial.",
         "emoji": "🚀",
-        "requireUsername": false
+        "requireUsername": false,
+        "requireLimitCheck": false
     },
     {
         "id": "fish",
@@ -25,7 +29,10 @@ module.exports = [
         "price": 20000,
         "category": "Game Items",
         "description": "Berbagai perlengkapan & umpan langka di game Fish It.",
-        "emoji": "🎣"
+        "emoji": "🎣",
+        "requireUsername": true,
+        "requireLimitCheck": false,
+        "notes": "• Mohon beri tahu Admin nama server tempat Anda berada.\n• Pengiriman item dilakukan via Trade / In-game Gift."
     },
     {
         "id": "rbx100",
@@ -33,7 +40,9 @@ module.exports = [
         "price": 15000,
         "category": "Robux",
         "description": "Pengisian Robux langsung via Username Roblox (Tanpa Login).",
-        "emoji": "💎"
+        "emoji": "💎",
+        "requireUsername": true,
+        "requireLimitCheck": true
     },
     {
         "id": "rbx500",
@@ -41,7 +50,9 @@ module.exports = [
         "price": 70000,
         "category": "Robux",
         "description": "Pengisian Robux 500 R$ via Username Roblox.",
-        "emoji": "💎"
+        "emoji": "💎",
+        "requireUsername": true,
+        "requireLimitCheck": true
     },
     {
         "id": "mkn",
@@ -50,6 +61,7 @@ module.exports = [
         "category": "General",
         "description": "Produk Bebey Store",
         "emoji": "📦",
-        "requireUsername": false
+        "requireUsername": false,
+        "requireLimitCheck": false
     }
 ];

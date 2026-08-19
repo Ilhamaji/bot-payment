@@ -26,6 +26,14 @@ module.exports = {
 			option.setName('username')
 				.setDescription('Apakah butuh input username Roblox? (True = Butuh, False = Tidak)')
 				.setRequired(false))
+		.addBooleanOption(option =>
+			option.setName('cek_limit')
+				.setDescription('Apakah butuh Cek Limit Roblox? (True = Butuh, False = Tidak)')
+				.setRequired(false))
+		.addStringOption(option =>
+			option.setName('catatan_tiket')
+				.setDescription('Catatan khusus produk di tiket (Ketik RESET untuk kembali ke catatan bawaan)')
+				.setRequired(false))
 		.addStringOption(option =>
 			option.setName('kategori')
 				.setDescription('Kategori produk baru (kosongkan jika tidak diubah)')
@@ -67,6 +75,8 @@ module.exports = {
 		const newName = interaction.options.getString('nama');
 		const newPrice = interaction.options.getInteger('harga');
 		const newUsernameReq = interaction.options.getBoolean('username');
+		const newLimitCheck = interaction.options.getBoolean('cek_limit');
+		const newNotes = interaction.options.getString('catatan_tiket');
 		const newCategory = interaction.options.getString('kategori');
 		const newEmoji = interaction.options.getString('emoji');
 		const newCategoryEmoji = interaction.options.getString('emoji_kategori');
@@ -96,6 +106,21 @@ module.exports = {
 		if (newUsernameReq !== null && newUsernameReq !== undefined) {
 			changes.push(`• **Butuh Username Roblox:** \`${targetItem.requireUsername !== false ? 'Ya' : 'Tidak'}\` ➔ **${newUsernameReq ? 'Ya' : 'Tidak'}**`);
 			targetItem.requireUsername = newUsernameReq;
+		}
+
+		if (newLimitCheck !== null && newLimitCheck !== undefined) {
+			changes.push(`• **Cek Limit Roblox:** \`${targetItem.requireLimitCheck !== false ? 'Ya' : 'Tidak'}\` ➔ **${newLimitCheck ? 'Ya' : 'Tidak'}**`);
+			targetItem.requireLimitCheck = newLimitCheck;
+		}
+
+		if (newNotes !== null && newNotes !== undefined) {
+			if (newNotes.trim().toUpperCase() === 'RESET') {
+				delete targetItem.notes;
+				changes.push(`• **Catatan Tiket:** \`Direset ke catatan bawaan\``);
+			} else if (newNotes.trim() !== '') {
+				changes.push(`• **Catatan Tiket:** \`Diperbarui\``);
+				targetItem.notes = newNotes.trim();
+			}
 		}
 
 		if (newCategory && newCategory.trim() !== '') {
