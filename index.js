@@ -40,6 +40,28 @@ const client = new Client({
     ] 
 });
 const userEphemeralInteractions = new Map();
+const ticketCreationInteractions = new Map();
+
+async function deleteTicketCreationMessage(orderId, channelId) {
+    const cleanOrderId = orderId ? orderId.toUpperCase() : null;
+    const chanId = channelId ? String(channelId) : null;
+
+    let targetInteraction = null;
+    if (cleanOrderId && ticketCreationInteractions.has(cleanOrderId)) {
+        targetInteraction = ticketCreationInteractions.get(cleanOrderId);
+    } else if (chanId && ticketCreationInteractions.has(chanId)) {
+        targetInteraction = ticketCreationInteractions.get(chanId);
+    }
+
+    if (targetInteraction) {
+        try {
+            await targetInteraction.deleteReply();
+        } catch (err) {}
+        if (cleanOrderId) ticketCreationInteractions.delete(cleanOrderId);
+        if (chanId) ticketCreationInteractions.delete(chanId);
+    }
+}
+
 client.commands = new Collection();
 
 // Load Commands
@@ -108,6 +130,9 @@ async function createTicketChannel(interaction, selectedItem, robloxUsername = '
 		} else {
 			await interaction.reply({ content: replyMsg, flags: MessageFlags.Ephemeral });
 		}
+
+		ticketCreationInteractions.set(orderId.toUpperCase(), interaction);
+		ticketCreationInteractions.set(ticketChannel.id, interaction);
 
 		// Embed Tiket (Single-Card Clean Aesthetic - 100% Non-Recursive)
 		const userLine = (robloxUsername && robloxUsername !== 'Tidak Perlu') 
@@ -218,6 +243,7 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>24 Jam): #${channel.name}`);
 						const orderId = channel.name.toUpperCase();
 						await deleteAdminChannelMessagesForOrder(clientInstance, orderId);
+						await deleteTicketCreationMessage(orderId, channel.id);
 						try {
 							const timeoutEmbed = new EmbedBuilder()
 								.setTitle('⏰  BEBEY STORE — TIKET KADALUARSA (24 JAM)')
@@ -648,6 +674,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			if (orderId) {
 				deleteAdminChannelMessagesForOrder(client, orderId).catch(err => console.warn('Cleanup warning:', err));
 			}
+			deleteTicketCreationMessage(orderId, ticketChan.id);
 
 			setTimeout(async () => {
 				try {
@@ -682,6 +709,7 @@ client.on(Events.InteractionCreate, async interaction => {
 			if (orderId) {
 				deleteAdminChannelMessagesForOrder(client, orderId).catch(err => console.warn('Cleanup warning:', err));
 			}
+			deleteTicketCreationMessage(orderId, ticketChan.id);
 
 			setTimeout(async () => {
 				try {
