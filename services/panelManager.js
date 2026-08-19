@@ -276,7 +276,12 @@ async function updateGlobalPanel(client) {
                 }
             }
         } catch (e) {
-            console.warn('Catalog message not found or fail to edit:', e);
+            if (e.code === 10008 || e.status === 404) {
+                console.log('ℹ️ Pesan panel katalog lama di Discord telah dihapus/tidak ditemukan. Silakan jalankan /panel kembali.');
+                saveCatalogLocation(catChanId, null);
+            } else {
+                console.warn('Catalog message update notice:', e.message || e);
+            }
         }
     }
 
@@ -317,7 +322,12 @@ async function updateGlobalPanel(client) {
                 }
             }
         } catch (e) {
-            console.warn('Leaderboard message not found or fail to edit:', e);
+            if (e.code === 10008 || e.status === 404) {
+                console.log('ℹ️ Pesan panel leaderboard lama di Discord telah dihapus/tidak ditemukan. Silakan jalankan /topspender kembali.');
+                saveLeaderboardLocation(lbChanId, null);
+            } else {
+                console.warn('Leaderboard message update notice:', e.message || e);
+            }
         }
     }
 }
