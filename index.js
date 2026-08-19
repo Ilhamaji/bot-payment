@@ -62,6 +62,91 @@ async function deleteTicketCreationMessage(orderId, channelId) {
     }
 }
 
+const pendingAdminDeliveryProof = new Map();
+
+async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '', adminUser = null, originalMessage = null, interactionToReply = null) {
+	await updatePurchaseStatus(orderId, 'fulfilled');
+
+	// Refresh live panel (Leaderboard & Katalog)
+	updateGlobalPanel(clientInstance);
+
+	// Update Admin message in Admin Channel if provided
+	if (originalMessage) {
+		try {
+			const updatedEmbed = EmbedBuilder.from(originalMessage.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  TRANSAKSI DI-APPROVE BY ADMIN');
+
+			if (proofUrl) {
+				updatedEmbed.setImage(proofUrl);
+			}
+
+			await originalMessage.edit({ embeds: [updatedEmbed], components: [] });
+		} catch (e) {}
+	}
+
+	if (interactionToReply && !interactionToReply.replied && !interactionToReply.deferred) {
+		try {
+			await interactionToReply.reply({
+				content: `✅ **TRANSAKSI DI-APPROVE!** Bukti pengiriman item untuk order \`${orderId}\` telah berhasil dikirimkan ke pembeli.`,
+				flags: MessageFlags.Ephemeral
+			});
+		} catch (e) {}
+	}
+
+	// Cari channel tiket pembeli dan kirim notifikasi approve beserta foto bukti pengiriman dari Admin
+	const targetChannelName = orderId.toLowerCase();
+	try {
+		let targetGuild = clientInstance.guilds.cache.first();
+		if (targetGuild) {
+			const channels = await targetGuild.channels.fetch();
+			const ticketChannel = channels.find(c => c && c.name === targetChannelName);
+			if (ticketChannel) {
+				let buyerMention = '';
+				if (originalMessage && originalMessage.embeds.length > 0) {
+					const buyerField = originalMessage.embeds[0].fields?.find(f => f.name.includes('PEMBELI'));
+					if (buyerField) buyerMention = buyerField.value;
+				}
+
+				const notesText = notes ? `📝 **Catatan Admin:** ${notes}\n\n` : '';
+
+				const approvedEmbed = new EmbedBuilder()
+					.setTitle('✅  BEBEY STORE — PEMBAYARAN DI-APPROVE!')
+					.setColor(0x2ECC71)
+					.setDescription(
+						`Halo ${buyerMention}! 🎉 **PEMBAYARAN TERVERIFIKASI & ITEM TERKIRIM!** Transaksi \`${orderId}\` Anda telah **disetujui dan dikirimkan oleh Admin**.\n\n` +
+						notesText +
+						`📸 **Foto Bukti Pengiriman dari Admin:**\n` +
+						`(Lihat gambar bukti pengiriman item dari Admin di bawah ini)\n\n` +
+						`⚠️ **PERHATIAN PENTING:**\n` +
+						`**Silakan tekan tombol di bawah ini HANYA JIKA ITEM SUDAH BENAR-BENAR DITERIMA di akun Roblox Anda!**`
+					)
+					.setTimestamp()
+					.setFooter({ text: '⚠️ Klik tombol di bawah hanya jika item sudah diterima.' });
+
+				if (proofUrl) {
+					approvedEmbed.setImage(proofUrl);
+				}
+
+				const finishTicketBtn = new ButtonBuilder()
+					.setCustomId('finish_ticket_button')
+					.setLabel('✅ Selesai (Klik Hanya Jika Item Sudah Diterima)')
+					.setStyle(ButtonStyle.Success);
+
+				const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn);
+
+				await ticketChannel.send({ 
+					content: buyerMention ? `🔔 Halo ${buyerMention}, transaksi Anda telah disetujui!` : null, 
+					embeds: [approvedEmbed], 
+					components: [finishRow] 
+				});
+			}
+		}
+	} catch (err) {
+		console.warn('⚠️ Tidak dapat mengirim notifikasi approve ke channel tiket pembeli:', err);
+	}
+}
+
 client.commands = new Collection();
 
 // Load Commands
@@ -378,10 +463,58 @@ client.once(Events.ClientReady, c => {
 	}, 15 * 60 * 1000);
 });
 
-// LISTEN FITUR AUTO-DETECT SCREENSHOT BUKTI TRANSFER DARI USER
+// LISTEN FITUR AUTO-DETECT SCREENSHOT BUKTI TRANSFER DARI USER & BUKTI PENGIRIMAN DARI ADMIN
 client.on(Events.MessageCreate, async message => {
 	if (message.author.bot) return;
 	if (!message.guild) return;
+
+	const adminChanId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
+	const { isAdmin } = require('./services/admins');
+
+	if (adminChanId && message.channelId === adminChanId && isAdmin(message.author.id) && !message.author.bot) {
+		const adminImage = message.attachments.find(att => {
+			const ct = att.contentType || '';
+			const name = att.name || '';
+			return ct.startsWith('image/') || /\.(png|jpg|jpeg|webp)$/i.test(name);
+		});
+
+		if (adminImage) {
+			let matchedOrderId = null;
+			let pendingData = null;
+
+			for (const [key, data] of pendingAdminDeliveryProof.entries()) {
+				if (data.channelId === message.channelId || message.content.toUpperCase().includes(key)) {
+					matchedOrderId = key;
+					pendingData = data;
+					break;
+				}
+			}
+
+			if (!matchedOrderId) {
+				const fetched = await message.channel.messages.fetch({ limit: 10 });
+				const orderMsg = fetched.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('VERIFIKASI BUKTI TRANSFER'));
+				if (orderMsg) {
+					const field = orderMsg.embeds[0].fields?.find(f => f.name.includes('ORDER ID'));
+					if (field) {
+						matchedOrderId = field.value.replace(/`/g, '').trim().toUpperCase();
+						pendingData = { originalMessage: orderMsg };
+					}
+				}
+			}
+
+			if (matchedOrderId) {
+				const proofUrl = adminImage.url;
+				pendingAdminDeliveryProof.delete(matchedOrderId);
+
+				await executeOrderApproval(client, matchedOrderId, proofUrl, pendingData ? pendingData.deliveryNotes : '', message.author, pendingData ? pendingData.originalMessage : null, null);
+
+				await message.reply({
+					content: `✅ **BUKTI PENGIRIMAN DITERIMA!** Transaksi \`${matchedOrderId}\` berhasil di-approve dan foto bukti pengiriman telah dikirimkan ke pembeli!`
+				});
+				return;
+			}
+		}
+	}
 
 	const isTicketChannel = message.channel.name && (
 		(process.env.TICKET_CATEGORY_ID && message.channel.parentId === process.env.TICKET_CATEGORY_ID.trim()) ||
@@ -661,6 +794,37 @@ client.on(Events.InteractionCreate, async interaction => {
 					await confirmMsg.edit({ embeds: [updatedEmbed] });
 				}
 			} catch (e) {}
+			return;
+		}
+
+		// Handle Submit Modal Bukti Pengiriman Admin
+		if (interaction.customId.startsWith('modal_approve_delivery_')) {
+			const orderId = interaction.customId.replace('modal_approve_delivery_', '');
+			const proofUrl = interaction.fields.getTextInputValue('delivery_proof_url').trim();
+			const deliveryNotes = interaction.fields.getTextInputValue('delivery_notes').trim();
+
+			if (proofUrl && proofUrl.toLowerCase() !== 'upload' && (proofUrl.startsWith('http://') || proofUrl.startsWith('https://'))) {
+				await interaction.deferUpdate();
+				await executeOrderApproval(client, orderId, proofUrl, deliveryNotes, interaction.user, interaction.message, interaction);
+				return;
+			}
+
+			// Simpan pending approval untuk menunggu Admin upload foto di Admin Channel
+			const originalMsg = interaction.message;
+			pendingAdminDeliveryProof.set(orderId.toUpperCase(), {
+				adminUser: interaction.user,
+				channelId: interaction.channelId,
+				originalMessage: originalMsg,
+				deliveryNotes: deliveryNotes
+			});
+
+			await interaction.reply({
+				content: 
+					`📸 **HARAP UPLOAD FOTO BUKTI PENGIRIMAN!**\n` +
+					`> Silakan **upload foto screenshot bukti pengiriman item** untuk Order \`${orderId}\` di channel ini.\n` +
+					`> Bot akan otomatis menangkap foto yang Anda upload dan mengirimkan pesan approve beserta foto bukti tersebut ke pembeli!`,
+				flags: MessageFlags.Ephemeral
+			});
 			return;
 		}
 		return;
@@ -1113,65 +1277,30 @@ client.on(Events.InteractionCreate, async interaction => {
 			}
 
 			const orderId = interaction.customId.replace('admin_approve_', '');
-			await updatePurchaseStatus(orderId, 'fulfilled');
 
-			// Refresh otomatis 2 pesan panel toko (Leaderboard & Katalog) real-time
-			updateGlobalPanel(client);
+			const modal = new ModalBuilder()
+				.setCustomId(`modal_approve_delivery_${orderId}`)
+				.setTitle('BUKTI PENGIRIMAN ITEM (ADMIN)');
 
-			const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-				.setColor(0x2ECC71)
-				.setTitle('✅  TRANSAKSI DI-APPROVE BY ADMIN');
+			const proofUrlInput = new TextInputBuilder()
+				.setCustomId('delivery_proof_url')
+				.setLabel("LINK GAMBAR BUKTI PENGIRIMAN ITEM:")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("Cth: https://... (Atau ketik 'upload' untuk kirim foto di channel)")
+				.setRequired(false);
 
-			await interaction.update({ embeds: [updatedEmbed], components: [] });
-			await interaction.followUp({ content: `✅ Transaksi \`${orderId}\` telah berhasil disetujui oleh ${interaction.user}! Item akan otomatis diproses ke akun Roblox pembeli.` });
+			const notesInput = new TextInputBuilder()
+				.setCustomId('delivery_notes')
+				.setLabel("CATATAN UNTUK PEMBELI (Opsional):")
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder("Cth: Item Robux 100 R$ telah berhasil dikirim ke akun xIruhamu!")
+				.setRequired(false);
 
-			// Cari channel tiket berdasarkan orderId dan kirim notifikasi ke pembeli
-			const targetChannelName = orderId.toLowerCase();
-			try {
-				let targetGuild = interaction.guild;
-				if (!targetGuild) {
-					// Jika diklik via DM Admin, cari guild tempat bot berada
-					targetGuild = client.guilds.cache.first();
-				}
-				if (targetGuild) {
-					const channels = await targetGuild.channels.fetch();
-					const ticketChannel = channels.find(c => c && c.name === targetChannelName);
-					if (ticketChannel) {
-						let buyerMention = '';
-						const buyerField = interaction.message.embeds[0]?.fields?.find(f => f.name.includes('PEMBELI'));
-						if (buyerField) {
-							buyerMention = buyerField.value;
-						}
+			const row1 = new ActionRowBuilder().addComponents(proofUrlInput);
+			const row2 = new ActionRowBuilder().addComponents(notesInput);
+			modal.addComponents(row1, row2);
 
-						const approvedEmbed = new EmbedBuilder()
-							.setTitle('✅  BEBEY STORE — PEMBAYARAN DI-APPROVE!')
-							.setColor(0x2ECC71)
-							.setDescription(
-								`Halo ${buyerMention}! 🎉 **PEMBAYARAN TERVERIFIKASI!** Transaksi \`${orderId}\` Anda telah **disetujui oleh Admin**.\n` +
-								`Item Roblox Anda sedang diproses / telah dikirimkan ke akun Anda.\n\n` +
-								`⚠️ **PERHATIAN PENTING:**\n` +
-								`**Silakan tekan tombol di bawah ini HANYA JIKA ITEM SUDAH BENAR-BENAR DITERIMA di akun Roblox Anda!**`
-							)
-							.setTimestamp()
-							.setFooter({ text: '⚠️ Klik tombol di bawah hanya jika item sudah diterima.' });
-
-						const finishTicketBtn = new ButtonBuilder()
-							.setCustomId('finish_ticket_button')
-							.setLabel('✅ Selesai (Klik Hanya Jika Item Sudah Diterima)')
-							.setStyle(ButtonStyle.Success);
-
-						const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn);
-
-						await ticketChannel.send({ 
-							content: buyerMention ? `🔔 Halo ${buyerMention}, transaksi Anda telah disetujui!` : null, 
-							embeds: [approvedEmbed], 
-							components: [finishRow] 
-						});
-					}
-				}
-			} catch (err) {
-				console.warn('⚠️ Tidak dapat mengirim notifikasi approve ke channel tiket pembeli:', err);
-			}
+			await interaction.showModal(modal);
 			return;
 		}
 
