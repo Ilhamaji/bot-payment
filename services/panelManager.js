@@ -169,6 +169,9 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
         .setTimestamp()
         .setFooter({ text: '⚡ Bebey Store Official • Automatic 24/7 Ticketing System' });
 
+    // Baris 1-4: Tombol Kategori Filter (Sub-Menu Dinamis Auto-Update)
+    const categoryRows = buildCategoryButtons(categories, selectedCategory);
+
     return {
         embeds: [catEmbed],
         components: [...categoryRows] // HANYA TOMBOL KATEGORI (Dropdown pilihan produk dibuka via tombol kategori)
