@@ -47,6 +47,25 @@ async function validateRobloxUsername(username) {
     }
 }
 
+/**
+ * Ambil URL Gambar Avatar Headshot dari Roblox API
+ */
+async function getRobloxAvatarHeadshot(userId) {
+    if (!userId) return null;
+    try {
+        const response = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
+        if (!response.ok) return null;
+        const json = await response.json();
+        if (json.data && json.data.length > 0 && json.data[0].imageUrl) {
+            return json.data[0].imageUrl;
+        }
+    } catch (e) {
+        console.warn('⚠️ Gagal mengambil avatar headshot Roblox:', e);
+    }
+    return null;
+}
+
 module.exports = {
-    validateRobloxUsername
+    validateRobloxUsername,
+    getRobloxAvatarHeadshot
 };

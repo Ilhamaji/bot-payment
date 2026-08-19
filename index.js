@@ -76,7 +76,11 @@ for (const file of commandFiles) {
 	}
 }
 
-async function createTicketChannel(interaction, selectedItem, robloxUsername = 'Tidak Perlu') {
+async function createTicketChannel(interaction, selectedItem, robloxData = 'Tidak Perlu') {
+	const robloxUsername = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.username : String(robloxData);
+	const robloxDisplayName = (typeof robloxData === 'object' && robloxData !== null) ? (robloxData.displayName || robloxUsername) : robloxUsername;
+	const robloxUserId = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.id : null;
+
 	const itemCode = (selectedItem.id || 'ITEM').toUpperCase();
 	const randomHash = uuidv4().substring(0, 4).toUpperCase();
 	const orderId = `${itemCode}-${randomHash}`;
@@ -178,27 +182,67 @@ async function createTicketChannel(interaction, selectedItem, robloxUsername = '
 			components: [row]
 		});
 
-		// 2. Embed Instruksi Pembayaran & Gambar QRIS (Dipindah ke Chat Setelahnya)
-		const paymentDescription = 
-			`📌 **INSTRUKSI PEMBAYARAN:**\n` +
-			`1️⃣ Transfer **Rp ${totalAmount.toLocaleString('id-ID')}** ke QRIS Bebey Store di bawah ini.\n` +
-			`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
-			`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+		// 2. Embed Konfirmasi Akun Roblox (Jika item membutuhkan Username Roblox)
+		if (robloxUsername && robloxUsername !== 'Tidak Perlu') {
+			const { getRobloxAvatarHeadshot } = require('./services/roblox');
+			const avatarUrl = await getRobloxAvatarHeadshot(robloxUserId);
 
-		const paymentEmbed = new EmbedBuilder()
-			.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
-			.setColor(0x3498DB)
-			.setDescription(paymentDescription.trim())
-			.setImage(qrisImage)
-			.setTimestamp()
-			.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
+			const confirmEmbed = new EmbedBuilder()
+				.setTitle('👤  Konfirmasi Akun Roblox')
+				.setColor(0xF1C40F)
+				.setDescription(
+					`Apakah ini akun kamu?\n\n` +
+					`**Username**\n` +
+					`\`${robloxUsername}\`\n\n` +
+					`**Display Name**\n` +
+					`**${robloxDisplayName}**\n\n` +
+					`**User ID**\n` +
+					`\`${robloxUserId || 'N/A'}\``
+				)
+				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
-		// Kirim Pesan Kedua: QRIS & Cara Pembayaran
-		await ticketChannel.send({
-			embeds: [paymentEmbed]
-		});
+			if (avatarUrl) {
+				confirmEmbed.setThumbnail(avatarUrl);
+			}
 
-		// Catat pesanan baru ke Supabase dengan Discord User Tag agar Leaderboard menampilkan Username Discord
+			const confirmYesBtn = new ButtonBuilder()
+				.setCustomId(`confirm_roblox_${orderId}`)
+				.setLabel('✅ Iya, Ini Akun Saya')
+				.setStyle(ButtonStyle.Success);
+
+			const changeNoBtn = new ButtonBuilder()
+				.setCustomId(`change_roblox_${orderId}`)
+				.setLabel('❌ Bukan, Ganti Username')
+				.setStyle(ButtonStyle.Danger);
+
+			const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
+
+			await ticketChannel.send({
+				embeds: [confirmEmbed],
+				components: [confirmRow]
+			});
+		} else {
+			// Jika item tidak perlu Username Roblox -> Langsung kirim Pesan QRIS
+			const paymentDescription = 
+				`📌 **INSTRUKSI PEMBAYARAN:**\n` +
+				`1️⃣ Transfer **Rp ${totalAmount.toLocaleString('id-ID')}** ke QRIS Bebey Store di bawah ini.\n` +
+				`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
+				`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+
+			const paymentEmbed = new EmbedBuilder()
+				.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
+				.setColor(0x3498DB)
+				.setDescription(paymentDescription.trim())
+				.setImage(qrisImage)
+				.setTimestamp()
+				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
+
+			await ticketChannel.send({
+				embeds: [paymentEmbed]
+			});
+		}
+
+		// Catat pesanan baru ke Supabase
 		await createPurchase(orderId, robloxUsername, selectedItem.name, selectedItem.price, uniqueCode, 'pending', interaction.user.tag);
 
 	} catch (err) {
@@ -529,7 +573,7 @@ client.on(Events.InteractionCreate, async interaction => {
 				});
 			}
 
-			await createTicketChannel(interaction, selectedItem, robloxCheck.username);
+			await createTicketChannel(interaction, selectedItem, robloxCheck);
 
 			// Hapus pesan privat sub-menu ephemeral pembeli setelah tiket dibuat
 			const prevInteraction = userEphemeralInteractions.get(interaction.user.id);
@@ -540,11 +584,122 @@ client.on(Events.InteractionCreate, async interaction => {
 				userEphemeralInteractions.delete(interaction.user.id);
 			}
 		}
+
+		// Handle Submit Modal Ganti Username Roblox dari Tiket
+		if (interaction.customId.startsWith('modal_rechange_roblox_')) {
+			const orderId = interaction.customId.replace('modal_rechange_roblox_', '');
+			let newUsername = interaction.fields.getTextInputValue('new_roblox_username').trim();
+
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+			const { validateRobloxUsername, getRobloxAvatarHeadshot } = require('./services/roblox');
+			const robloxCheck = await validateRobloxUsername(newUsername);
+
+			if (!robloxCheck.valid) {
+				return interaction.editReply({
+					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n> Username Roblox \`${newUsername}\` tidak terdaftar di Roblox.`
+				});
+			}
+
+			// Update Username Roblox di Supabase
+			const { supabase } = require('./services/supabase');
+			await supabase.from('purchases').update({ roblox_username: robloxCheck.username }).eq('order_id', orderId);
+
+			// Ambil Gambar Avatar Headshot Baru
+			const avatarUrl = await getRobloxAvatarHeadshot(robloxCheck.id);
+
+			// Update Pesan Konfirmasi Akun Roblox di channel tiket ini
+			try {
+				const fetchedMsgs = await interaction.channel.messages.fetch({ limit: 20 });
+				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('Konfirmasi Akun Roblox'));
+
+				if (confirmMsg) {
+					const updatedEmbed = new EmbedBuilder()
+						.setTitle('👤  Konfirmasi Akun Roblox')
+						.setColor(0xF1C40F)
+						.setDescription(
+							`Apakah ini akun kamu?\n\n` +
+							`**Username**\n` +
+							`\`${robloxCheck.username}\`\n\n` +
+							`**Display Name**\n` +
+							`**${robloxCheck.displayName || robloxCheck.username}**\n\n` +
+							`**User ID**\n` +
+							`\`${robloxCheck.id || 'N/A'}\``
+						)
+						.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+					if (avatarUrl) {
+						updatedEmbed.setThumbnail(avatarUrl);
+					}
+
+					await confirmMsg.edit({ embeds: [updatedEmbed] });
+				}
+			} catch (e) {}
+
+			await interaction.editReply({
+				content: `✅ **BERHASIL!** Username Roblox berhasil diganti menjadi \`${robloxCheck.username}\` (${robloxCheck.displayName}). Silakan tekan **"✅ Iya, Ini Akun Saya"** di channel tiket.`
+			});
+			return;
+		}
 		return;
 	}
 
-	// 4. Handle Buttons (SOS, Close Ticket, Admin Approval, Category Sub-Menu Filter)
+	// 4. Handle Buttons (SOS, Close Ticket, Admin Approval, Category Sub-Menu Filter, Roblox Confirmation)
 	if (interaction.isButton()) {
+		// AA. Tombol Konfirmasi Akun Roblox ("Iya, Ini Akun Saya")
+		if (interaction.customId.startsWith('confirm_roblox_')) {
+			const orderId = interaction.customId.replace('confirm_roblox_', '');
+
+			const updatedConfirmEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  AKUN ROBLOX DIKONFIRMASI');
+
+			await interaction.update({ embeds: [updatedConfirmEmbed], components: [] });
+
+			// Kirim Pesan QRIS & Cara Pembayaran setelah akun dikonfirmasi
+			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
+
+			const paymentDescription = 
+				`📌 **INSTRUKSI PEMBAYARAN:**\n` +
+				`1️⃣ Transfer sesuai nominal QRIS Bebey Store di bawah ini.\n` +
+				`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
+				`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+
+			const paymentEmbed = new EmbedBuilder()
+				.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
+				.setColor(0x3498DB)
+				.setDescription(paymentDescription.trim())
+				.setImage(qrisImage)
+				.setTimestamp()
+				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
+
+			await interaction.channel.send({ embeds: [paymentEmbed] });
+			return;
+		}
+
+		// AB. Tombol "Bukan, Ganti Username"
+		if (interaction.customId.startsWith('change_roblox_')) {
+			const orderId = interaction.customId.replace('change_roblox_', '');
+
+			const modal = new ModalBuilder()
+				.setCustomId(`modal_rechange_roblox_${orderId}`)
+				.setTitle('GANTI USERNAME ROBLOX');
+
+			const usernameInput = new TextInputBuilder()
+				.setCustomId('new_roblox_username')
+				.setLabel("USERNAME ROBLOX BARU (Tanpa Simbol @):")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("Cth: Vevalsss (Langsung username, tanpa @)")
+				.setRequired(true)
+				.setMinLength(3)
+				.setMaxLength(30);
+
+			const actionRow = new ActionRowBuilder().addComponents(usernameInput);
+			modal.addComponents(actionRow);
+
+			await interaction.showModal(modal);
+			return;
+		}
 		// AA. Tombol Sub-Menu Filter Kategori Produk (/panel) - SUB-MENU RINGKAS PER-USER
 		if (interaction.customId.startsWith('cat_filter_')) {
 			const catName = interaction.customId.replace('cat_filter_', '');
