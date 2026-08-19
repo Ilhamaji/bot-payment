@@ -736,7 +736,48 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			await interaction.update({ embeds: [updatedLimitEmbed], components: [] });
 
-			// Kirim Pesan 5: QRIS Code & Instruksi Pembayaran
+			// Kirim Pesan 5: Yakin Akunnya Aman Kak?
+			const safetyDescription = 
+				`Kalau ternyata masih limit, Robux-nya bisa nyangkut dan gak masuk penuh.\n\n` +
+				`Robux yang udah kekirim **gak bisa ditarik balik** — jadi yang nyangkut **gak bisa direfund**.\n\n` +
+				`Cek sekali lagi ya sebelum bayar 🙏`;
+
+			const safetyEmbed = new EmbedBuilder()
+				.setTitle('⚠️  Yakin Akunnya Aman Kak?')
+				.setColor(0xF1C40F)
+				.setDescription(safetyDescription.trim())
+				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+			const confirmSafetyBtn = new ButtonBuilder()
+				.setCustomId(`confirm_safety_${orderId}`)
+				.setLabel('✅ Yakin, Lanjut Bayar')
+				.setStyle(ButtonStyle.Success);
+
+			const checkAgainBtn = new ButtonBuilder()
+				.setCustomId(`check_again_${orderId}`)
+				.setLabel('❌ Cek Dulu')
+				.setStyle(ButtonStyle.Secondary);
+
+			const safetyRow = new ActionRowBuilder().addComponents(confirmSafetyBtn, checkAgainBtn);
+
+			await interaction.channel.send({
+				embeds: [safetyEmbed],
+				components: [safetyRow]
+			});
+			return;
+		}
+
+		// AD. Tombol "✅ Yakin, Lanjut Bayar"
+		if (interaction.customId.startsWith('confirm_safety_')) {
+			const orderId = interaction.customId.replace('confirm_safety_', '');
+
+			const updatedSafetyEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  KONFIRMASI KEAMANAN DISETUJUI');
+
+			await interaction.update({ embeds: [updatedSafetyEmbed], components: [] });
+
+			// Kirim Pesan 6: QRIS Code & Instruksi Pembayaran
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
 
 			const paymentDescription = 
@@ -754,6 +795,18 @@ client.on(Events.InteractionCreate, async interaction => {
 				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
 
 			await interaction.channel.send({ embeds: [paymentEmbed] });
+			return;
+		}
+
+		// AE. Tombol "❌ Cek Dulu"
+		if (interaction.customId.startsWith('check_again_')) {
+			await interaction.reply({
+				content: 
+					`ℹ️ **SILAKAN CEK AKUN ANDA DULU!**\n` +
+					`> Silakan periksa kembali sisa limit akun Roblox Anda di **roblox.com**.\n` +
+					`> Jika sudah 100% yakin akun bebas limit, tekan tombol **"✅ Yakin, Lanjut Bayar"** di atas.`,
+				flags: MessageFlags.Ephemeral
+			});
 			return;
 		}
 
