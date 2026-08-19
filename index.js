@@ -868,6 +868,68 @@ client.on(Events.InteractionCreate, async interaction => {
 			});
 			return;
 		}
+
+		// Handle Submit Modal Alasan Penolakan Admin
+		if (interaction.customId.startsWith('modal_reject_')) {
+			const orderId = interaction.customId.replace('modal_reject_', '');
+			const reasonInput = interaction.fields.getTextInputValue('reject_reason').trim();
+			const rejectReason = reasonInput !== '' ? reasonInput : 'Foto resi transfer kurang jelas / tidak sesuai ketentuan.';
+
+			await updatePurchaseStatus(orderId, 'rejected');
+
+			const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0xED4245)
+				.setTitle('❌  TRANSAKSI DITOLAK BY ADMIN')
+				.setDescription(
+					`Transaksi \`${orderId}\` telah ditolak oleh ${interaction.user}.\n\n` +
+					`📌 **Alasan Penolakan:** ${rejectReason}`
+				);
+
+			await interaction.update({ embeds: [updatedEmbed], components: [] });
+
+			// Cari channel tiket berdasarkan orderId dan kirim notifikasi reject beserta alasannya ke pembeli
+			const targetChannelName = orderId.toLowerCase();
+			try {
+				let targetGuild = interaction.guild || client.guilds.cache.first();
+				if (targetGuild) {
+					const channels = await targetGuild.channels.fetch();
+					const ticketChannel = channels.find(c => c && c.name === targetChannelName);
+					if (ticketChannel) {
+						let buyerMention = '';
+						if (interaction.message.embeds[0]?.fields) {
+							const buyerField = interaction.message.embeds[0].fields.find(f => f.name.includes('PEMBELI'));
+							if (buyerField) buyerMention = buyerField.value;
+						}
+
+						const rejectedEmbed = new EmbedBuilder()
+							.setTitle('❌  BEBEY STORE — PEMBAYARAN DITOLAK')
+							.setColor(0xED4245)
+							.setDescription(
+								`Halo ${buyerMention || 'Pembeli'}! ⚠️ Pembayaran kamu untuk order \`${orderId}\` **ditolak oleh Admin**.\n\n` +
+								`📌 **Alasan Penolakan:**\n` +
+								`> *${rejectReason}*\n\n` +
+								`💡 **Apa yang harus dilakukan?**\n` +
+								`• Kamu bisa **upload foto screenshot bukti transfer baru yang benar** di channel tiket ini.\n` +
+								`• Jika butuh bantuan Admin, silakan tekan tombol **"🆘 Bantuan Admin"** di atas.`
+							)
+							.setTimestamp()
+							.setFooter({ text: 'Bebey Store Official • Silakan upload ulang foto resi transfer yang benar.' });
+
+						await ticketChannel.send({ 
+							content: buyerMention ? `🔔 Halo ${buyerMention}, bukti transfer kamu ditolak/perlu direvisi!` : null,
+							embeds: [rejectedEmbed] 
+						});
+					}
+				}
+			} catch (err) {
+				console.warn('⚠️ Tidak dapat mengirim notifikasi reject ke channel tiket pembeli:', err);
+			}
+
+			await interaction.followUp({
+				content: `❌ Transaksi \`${orderId}\` telah ditolak dengan alasan: "${rejectReason}".`
+			});
+			return;
+		}
 		return;
 	}
 
@@ -1629,41 +1691,22 @@ client.on(Events.InteractionCreate, async interaction => {
 			}
 
 			const orderId = interaction.customId.replace('admin_reject_', '');
-			await updatePurchaseStatus(orderId, 'rejected');
 
-			const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
-				.setColor(0xED4245)
-				.setTitle('❌  TRANSAKSI DITOLAK BY ADMIN');
+			const modal = new ModalBuilder()
+				.setCustomId(`modal_reject_${orderId}`)
+				.setTitle('ALASAN PENOLAKAN (ADMIN)');
 
-			await interaction.update({ embeds: [updatedEmbed], components: [] });
-			await interaction.followUp({ content: `❌ Transaksi \`${orderId}\` telah ditolak oleh ${interaction.user}.` });
+			const reasonInput = new TextInputBuilder()
+				.setCustomId('reject_reason')
+				.setLabel("ALASAN PENOLAKAN (Opsional):")
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder("Cth: Foto resi blur, nominal transfer kurang, atau salah foto resi")
+				.setRequired(false);
 
-			// Cari channel tiket berdasarkan orderId dan kirim notifikasi reject ke pembeli
-			const targetChannelName = orderId.toLowerCase();
-			try {
-				let targetGuild = interaction.guild;
-				if (!targetGuild) {
-					targetGuild = client.guilds.cache.first();
-				}
-				if (targetGuild) {
-					const channels = await targetGuild.channels.fetch();
-					const ticketChannel = channels.find(c => c && c.name === targetChannelName);
-					if (ticketChannel) {
-						const rejectedEmbed = new EmbedBuilder()
-							.setTitle('❌  BEBEY STORE — PEMBAYARAN DITOLAK')
-							.setColor(0xED4245)
-							.setDescription(
-								`> ⚠️ Transaksi \`${orderId}\` Anda **ditolak oleh Admin**.\n` +
-								`> Silakan tekan tombol **"🆘 Bantuan Admin"** di atas jika membutuhkan bantuan.`
-							)
-							.setTimestamp();
+			const row = new ActionRowBuilder().addComponents(reasonInput);
+			modal.addComponents(row);
 
-						await ticketChannel.send({ embeds: [rejectedEmbed] });
-					}
-				}
-			} catch (err) {
-				console.warn('⚠️ Tidak dapat mengirim notifikasi reject ke channel tiket pembeli:', err);
-			}
+			await interaction.showModal(modal);
 			return;
 		}
 	}
