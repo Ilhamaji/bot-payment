@@ -173,27 +173,27 @@ function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
 	const formattedPrice = `Rp ${totalAmount.toLocaleString('id-ID')}`;
 
 	const paymentDescription = 
-		`📦 **Produk**\n` +
+		`📦 **Detail Produk**\n` +
 		`${itemEmoji} **${selectedItem.name}**\n\n` +
-		`💰 **Total Bayar**\n` +
+		`💰 **Nominal Transfer Tepat**\n` +
 		`**${formattedPrice}**\n\n` +
-		`🆔 **Order ID**\n` +
+		`🆔 **Kode Pesanan (Order ID)**\n` +
 		`\`${orderId}\`\n\n` +
-		`📌 **Cara Bayar**\n` +
-		`1️⃣ Scan QRIS di bawah\n` +
-		`2️⃣ Bayar **tepat ${formattedPrice}**\n` +
-		`3️⃣ Screenshot bukti transfer\n\n` +
-		`‼️ **Screenshot wajib keliatan:**\n` +
-		`🔋 Persentase baterai\n` +
-		`🕒 Jam HP\n` +
-		`📖 Rincian transfer lengkap\n` +
-		`❌ Jangan di-crop atau disensor!\n\n` +
-		`4️⃣ Kirim bukti di sini\n` +
-		`5️⃣ Klik **Saya Sudah Transfer**`;
+		`📌 **Petunjuk Pembayaran:**\n` +
+		`1️⃣ Pindai (Scan) QRIS Bebey Store di bawah ini menggunakan e-wallet / m-banking Anda.\n` +
+		`2️⃣ Lakukan transfer dengan nominal **tepat ${formattedPrice}**.\n` +
+		`3️⃣ Simpan tangkapan layar (screenshot) bukti resi transfer Anda.\n\n` +
+		`‼️ **Ketentuan Screenshot Bukti Transfer:**\n` +
+		`🔋 Jam HP & persentase baterai wajib terlihat\n` +
+		`🕒 Tanggal, jam, & status transfer wajib terlihat\n` +
+		`📖 Rincian resi transfer lengkap & jelas\n` +
+		`❌ Dilarang dipotong (crop) atau disensor!\n\n` +
+		`4️⃣ Kirim foto resi di channel tiket ini\n` +
+		`5️⃣ Tekan tombol **Konfirmasi Sudah Transfer** di bawah`;
 
 	const paymentEmbed = new EmbedBuilder()
-		.setTitle(`💳  Scan QRIS untuk Membayar`)
-		.setColor(0xE67E22)
+		.setTitle(`💳  INSTRUKSI PEMBAYARAN QRIS`)
+		.setColor(0x3498DB)
 		.setDescription(paymentDescription.trim())
 		.setImage(qrisImage)
 		.setTimestamp()
@@ -201,7 +201,7 @@ function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
 
 	const transferredBtn = new ButtonBuilder()
 		.setCustomId(`already_transferred_${orderId}`)
-		.setLabel('✅ Saya Sudah Transfer')
+		.setLabel('✅ Konfirmasi Sudah Transfer')
 		.setStyle(ButtonStyle.Success);
 
 	const row = new ActionRowBuilder().addComponents(transferredBtn);
@@ -277,14 +277,14 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 			: '';
 
 		const ticketDescription = 
-			`Halo ${interaction.user}! Rincian pesanan Anda telah siap.\n\n` +
-			`📦 **Item Dibeli:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
+			`Selamat datang ${interaction.user}! Rincian pesanan Anda telah siap.\n\n` +
+			`📦 **Produk Dipesan:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
 			userLine +
-			`🆔 **Order ID:** \`${orderId}\`\n` +
-			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
+			`🆔 **Kode Transaksi (Order ID):** \`${orderId}\`\n` +
+			`💰 **Total Tagihan:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
 
 		const ticketEmbed = new EmbedBuilder()
-			.setTitle(`🎫  BEBEY STORE — TIKET PEMBAYARAN`)
+			.setTitle(`🎫  BEBEY STORE — RINCIAN & TIKET PEMBELIAN`)
 			.setColor(0x2ECC71)
 			.setDescription(ticketDescription.trim())
 			.setTimestamp()
@@ -292,12 +292,12 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 		const sosButton = new ButtonBuilder()
 			.setCustomId('sos_help_button')
-			.setLabel('🆘 Bantuan Admin')
+			.setLabel('🆘 Butuh Bantuan')
 			.setStyle(ButtonStyle.Danger);
 
 		const closeButton = new ButtonBuilder()
 			.setCustomId('close_ticket_button')
-			.setLabel('🔒 Close Ticket')
+			.setLabel('🔒 Batalkan & Tutup Tiket')
 			.setStyle(ButtonStyle.Secondary);
 
 		const row = new ActionRowBuilder().addComponents(sosButton, closeButton);
@@ -314,16 +314,17 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 			const avatarUrl = await getRobloxAvatarHeadshot(robloxUserId);
 
 			const confirmEmbed = new EmbedBuilder()
-				.setTitle('👤  Konfirmasi Akun Roblox')
+				.setTitle('👤  VERIFIKASI AKUN ROBLOX TUJUAN')
 				.setColor(0xF1C40F)
 				.setDescription(
-					`Apakah ini akun kamu?\n\n` +
-					`**Username**\n` +
+					`Mohon periksa kembali data akun Roblox tujuan di bawah ini:\n\n` +
+					`📛 **Username Roblox**\n` +
 					`\`${robloxUsername}\`\n\n` +
-					`**Display Name**\n` +
+					`✨ **Display Name**\n` +
 					`**${robloxDisplayName}**\n\n` +
-					`**User ID**\n` +
-					`\`${robloxUserId || 'N/A'}\``
+					`🔢 **User ID**\n` +
+					`\`${robloxUserId || 'N/A'}\`\n\n` +
+					`Apakah data akun Roblox di atas sudah sesuai?`
 				)
 				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
@@ -333,12 +334,12 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 			const confirmYesBtn = new ButtonBuilder()
 				.setCustomId(`confirm_roblox_${orderId}`)
-				.setLabel('✅ Iya, Ini Akun Saya')
+				.setLabel('✅ Ya, Data Akun Sudah Benar')
 				.setStyle(ButtonStyle.Success);
 
 			const changeNoBtn = new ButtonBuilder()
 				.setCustomId(`change_roblox_${orderId}`)
-				.setLabel('❌ Bukan, Ganti Username')
+				.setLabel('✏️ Ubah Username Roblox')
 				.setStyle(ButtonStyle.Danger);
 
 			const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
@@ -902,24 +903,24 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			// Kirim Pesan 3: Catatan Penting Embed Card (Kustom per Item atau Bawaan)
 			let notesDescription = 
-				`Baca catatan ini sebentar sebelum lanjut ke pembayaran.\n\n` +
-				`• Pastikan **username** dan **display name** Roblox sudah sesuai dengan akun tujuan.\n` +
-				`• Mohon cek umur akun sebelum order. Untuk akun di bawah 18+, pastikan akun sudah terhubung dengan email parent.\n` +
-				`• Jika akun sedang terkena limit, gunakan akun lain yang sudah siap menerima Robux.\n` +
-				`• Setelah Robux berhasil dikirim ke akun yang sudah kamu konfirmasi, perubahan akun/limit setelah proses selesai berada di luar kendali Bebey Store. Admin tetap akan bantu cek kalau ada kendala.\n` +
-				`• Nyalakan verifikasi 2 langkah di setting > keamanan > email agar akun lebih aman.\n` +
-				`• Proses Via Username **15 menit – 240 menit** (maksimal 4 jam).\n\n` +
-				`Kalau datanya sudah sesuai, klik tombol di bawah untuk lanjut ke konfirmasi pesanan.`;
+				`Harap perhatikan syarat dan ketentuan transaksi **Bebey Store** berikut:\n\n` +
+				`1️⃣ **Akurasi Data**: Pastikan Username dan Display Name Roblox sudah 100% sesuai.\n` +
+				`2️⃣ **Fitur Usia Akun**: Untuk akun dibawah 18 tahun, pastikan fitur transaksi tidak diblokir email orang tua.\n` +
+				`3️⃣ **Batas Transaksi (Limit)**: Pastikan akun Roblox Anda dalam keadaan siap menerima transaksi.\n` +
+				`4️⃣ **Kebijakan Pembelian**: Robux/item yang telah dikirimkan tidak dapat dibatalkan atau direfund.\n` +
+				`5️⃣ **Keamanan Tambahan**: Aktifkan verifikasi 2 langkah (2FA) di pengaturan keamanan Roblox Anda.\n` +
+				`6️⃣ **Estimasi Proses**: Pengiriman produk membutuhkan waktu **15 s/d 240 menit** (maksimal 4 jam).\n\n` +
+				`Tekan tombol di bawah untuk menyetujui ketentuan di atas.`;
 
 			if (selectedItem && selectedItem.notes && selectedItem.notes.trim() !== '') {
 				notesDescription = 
-					`Baca catatan ini sebentar sebelum lanjut ke pembayaran.\n\n` +
+					`Harap perhatikan ketentuan khusus produk ini sebelum melanjutkan:\n\n` +
 					selectedItem.notes.trim() + `\n\n` +
-					`Kalau datanya sudah sesuai, klik tombol di bawah untuk lanjut ke konfirmasi pesanan.`;
+					`Tekan tombol di bawah untuk menyetujui ketentuan di atas.`;
 			}
 
 			const notesEmbed = new EmbedBuilder()
-				.setTitle('📌  Catatan Penting')
+				.setTitle('📋  SYARAT & KETENTUAN TRANSAKSI')
 				.setColor(0xE91E63)
 				.setDescription(notesDescription.trim())
 				.setTimestamp()
@@ -927,7 +928,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			const agreeBtn = new ButtonBuilder()
 				.setCustomId(`agree_terms_${orderId}`)
-				.setLabel('✅ Saya Paham & Setuju')
+				.setLabel('✅ Saya Memahami & Menyetujui')
 				.setStyle(ButtonStyle.Success);
 
 			const agreeRow = new ActionRowBuilder().addComponents(agreeBtn);
@@ -939,13 +940,13 @@ client.on(Events.InteractionCreate, async interaction => {
 			return;
 		}
 
-		// AB. Tombol "Saya Paham & Setuju" Catatan Penting
+		// AB. Tombol "Saya Memahami & Menyetujui" Catatan Penting
 		if (interaction.customId.startsWith('agree_terms_')) {
 			const orderId = interaction.customId.replace('agree_terms_', '');
 
 			const updatedNotesEmbed = EmbedBuilder.from(interaction.message.embeds[0])
 				.setColor(0x2ECC71)
-				.setTitle('✅  CATATAN DISETUJUI');
+				.setTitle('✅  SYARAT & KETENTUAN DISETUJUI');
 
 			await interaction.update({ embeds: [updatedNotesEmbed], components: [] });
 
@@ -984,32 +985,31 @@ client.on(Events.InteractionCreate, async interaction => {
 				return;
 			}
 
-			// Kirim Pesan 4: Cek Limit Akun Dulu Yuk!
+			// Kirim Pesan 4: PEMERIKSAAN KELAYAKAN AKUN ROBLOX
 			const limitDescription = 
-				`**${interaction.user}** sebelum lanjut bayar, kakak perlu **cek limit akun** dulu ya. 🙏\n\n` +
-				`Ini biar Robux-nya masuk penuh dan gak ada yang nyangkut gara-gara limit.\n\n` +
-				`📖 Ada 2 tutorial di tombol bawah: **cara cek limit akun** & **cara cek sisa limit**.\n\n` +
-				`Kalau udah dicek, pilih salah satu tombol di bawah 👇`;
+				`Sebelum melangkah ke tahap pembayaran, mari pastikan akun Roblox Anda **bebas dari pembatasan limit**.\n\n` +
+				`Hal ini penting agar Robux dapat terkirim secara utuh tanpa hambatan sistem Roblox. 🙏\n\n` +
+				`Tekan salah satu opsi di bawah untuk melanjutkan.`;
 
 			const limitEmbed = new EmbedBuilder()
-				.setTitle('🔍  Cek Limit Akun Dulu Yuk!')
+				.setTitle('🔍  PEMERIKSAAN KELAYAKAN AKUN ROBLOX')
 				.setColor(0xF1C40F)
 				.setDescription(limitDescription.trim())
 				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
 			const notLimitBtn = new ButtonBuilder()
 				.setCustomId(`limit_ok_${orderId}`)
-				.setLabel('✅ Tidak Limit')
+				.setLabel('✅ Akun Bebas Limit (Aman)')
 				.setStyle(ButtonStyle.Success);
 
 			const isLimitBtn = new ButtonBuilder()
 				.setCustomId(`limit_warning_${orderId}`)
-				.setLabel('⚠️ Akun Saya Limit')
+				.setLabel('⚠️ Akun Sedang Limit')
 				.setStyle(ButtonStyle.Danger);
 
 			const guideBtn = new ButtonBuilder()
 				.setCustomId(`limit_guide_${orderId}`)
-				.setLabel('📖 Cara Cek Limit Akun')
+				.setLabel('📖 Petunjuk Cek Limit')
 				.setStyle(ButtonStyle.Secondary);
 
 			const limitRow1 = new ActionRowBuilder().addComponents(notLimitBtn, isLimitBtn);
@@ -1022,36 +1022,36 @@ client.on(Events.InteractionCreate, async interaction => {
 			return;
 		}
 
-		// AC. Tombol "✅ Tidak Limit"
+		// AC. Tombol "✅ Akun Bebas Limit"
 		if (interaction.customId.startsWith('limit_ok_')) {
 			const orderId = interaction.customId.replace('limit_ok_', '');
 
 			const updatedLimitEmbed = EmbedBuilder.from(interaction.message.embeds[0])
 				.setColor(0x2ECC71)
-				.setTitle('✅  AKUN BEBAS LIMIT');
+				.setTitle('✅  AKUN BEBAS LIMIT DIKONFIRMASI');
 
 			await interaction.update({ embeds: [updatedLimitEmbed], components: [] });
 
-			// Kirim Pesan 5: Yakin Akunnya Aman Kak?
+			// Kirim Pesan 5: KONFIRMASI KEAMANAN AKUN
 			const safetyDescription = 
-				`Kalau ternyata masih limit, Robux-nya bisa nyangkut dan gak masuk penuh.\n\n` +
-				`Robux yang udah kekirim **gak bisa ditarik balik** — jadi yang nyangkut **gak bisa direfund**.\n\n` +
-				`Cek sekali lagi ya sebelum bayar 🙏`;
+				`Mohon pastikan kembali akun Roblox Anda tidak terhalang batas limit pengisian.\n\n` +
+				`📌 **Perhatian**: Pengiriman yang gagal/nyangkut akibat limit akun pembeli **di luar tanggung jawab toko dan tidak dapat direfund**.\n\n` +
+				`Apakah Anda yakin ingin melanjutkan ke tahap transfer pembayaran?`;
 
 			const safetyEmbed = new EmbedBuilder()
-				.setTitle('⚠️  Yakin Akunnya Aman Kak?')
+				.setTitle('⚠️  KONFIRMASI KEAMANAN AKUN')
 				.setColor(0xF1C40F)
 				.setDescription(safetyDescription.trim())
 				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
 			const confirmSafetyBtn = new ButtonBuilder()
 				.setCustomId(`confirm_safety_${orderId}`)
-				.setLabel('✅ Yakin, Lanjut Bayar')
+				.setLabel('✅ Ya, Lanjutkan Pembayaran')
 				.setStyle(ButtonStyle.Success);
 
 			const checkAgainBtn = new ButtonBuilder()
 				.setCustomId(`check_again_${orderId}`)
-				.setLabel('❌ Cek Dulu')
+				.setLabel('🔄 Periksa Kembali Akun')
 				.setStyle(ButtonStyle.Secondary);
 
 			const safetyRow = new ActionRowBuilder().addComponents(confirmSafetyBtn, checkAgainBtn);
