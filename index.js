@@ -485,24 +485,50 @@ client.on(Events.MessageCreate, async message => {
 
 		if (adminImage) {
 			let matchedOrderId = null;
-			let pendingData = null;
+			let targetMsg = null;
 
-			for (const [key, data] of pendingAdminDeliveryProof.entries()) {
-				if (data.channelId === message.channelId || message.content.toUpperCase().includes(key)) {
-					matchedOrderId = key;
-					pendingData = data;
-					break;
+			// A. Jika Admin ME-REPLY (membalas) pesan transaksi
+			if (message.reference && message.reference.messageId) {
+				try {
+					const repliedMsg = await message.channel.messages.fetch(message.reference.messageId);
+					if (repliedMsg && repliedMsg.embeds.length > 0) {
+						targetMsg = repliedMsg;
+						const embed = repliedMsg.embeds[0];
+						
+						// Extract order ID dari fields, footer, atau text
+						const orderField = embed.fields?.find(f => f.name.includes('ORDER ID'));
+						if (orderField) {
+							matchedOrderId = orderField.value.replace(/`/g, '').trim().toUpperCase();
+						} else if (embed.footer && embed.footer.text) {
+							const match = embed.footer.text.match(/[A-Z0-9]+-[A-Z0-9]+/);
+							if (match) matchedOrderId = match[0];
+						} else if (embed.description) {
+							const match = embed.description.match(/`([A-Z0-9]+-[A-Z0-9]+)`/);
+							if (match) matchedOrderId = match[1];
+						}
+					}
+				} catch (e) {}
+			}
+
+			// B. Jika tidak me-reply, cari dari pending map atau 10 pesan terdekat
+			if (!matchedOrderId) {
+				for (const [key, data] of pendingAdminDeliveryProof.entries()) {
+					if (data.channelId === message.channelId || message.content.toUpperCase().includes(key)) {
+						matchedOrderId = key;
+						targetMsg = data.originalMessage;
+						break;
+					}
 				}
 			}
 
 			if (!matchedOrderId) {
 				const fetched = await message.channel.messages.fetch({ limit: 10 });
-				const orderMsg = fetched.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('VERIFIKASI BUKTI TRANSFER'));
+				const orderMsg = fetched.find(m => m.embeds.length > 0 && m.embeds[0].title && (m.embeds[0].title.includes('VERIFIKASI BUKTI') || m.embeds[0].title.includes('DI-APPROVE')));
 				if (orderMsg) {
 					const field = orderMsg.embeds[0].fields?.find(f => f.name.includes('ORDER ID'));
 					if (field) {
 						matchedOrderId = field.value.replace(/`/g, '').trim().toUpperCase();
-						pendingData = { originalMessage: orderMsg };
+						targetMsg = orderMsg;
 					}
 				}
 			}
@@ -511,10 +537,10 @@ client.on(Events.MessageCreate, async message => {
 				const proofUrl = adminImage.url;
 				pendingAdminDeliveryProof.delete(matchedOrderId);
 
-				await executeOrderApproval(client, matchedOrderId, proofUrl, pendingData ? pendingData.deliveryNotes : '', message.author, pendingData ? pendingData.originalMessage : null, null);
+				await executeOrderApproval(client, matchedOrderId, proofUrl, '', message.author, targetMsg, null);
 
 				await message.reply({
-					content: `✅ **BUKTI PENGIRIMAN DITERIMA!** Transaksi \`${matchedOrderId}\` berhasil di-approve dan foto bukti pengiriman telah dikirimkan ke pembeli!`
+					content: `✅ **BUKTI PENGIRIMAN TERKIRIM!** Foto bukti pengiriman item untuk transaksi \`${matchedOrderId}\` telah berhasil dikirimkan ke channel tiket pembeli!`
 				});
 				return;
 			}
@@ -1374,30 +1400,24 @@ client.on(Events.InteractionCreate, async interaction => {
 			}
 
 			const orderId = interaction.customId.replace('admin_approve_', '');
+			await updatePurchaseStatus(orderId, 'fulfilled');
 
-			const modal = new ModalBuilder()
-				.setCustomId(`modal_approve_delivery_${orderId}`)
-				.setTitle('BUKTI PENGIRIMAN ITEM (ADMIN)');
+			// Refresh otomatis 2 pesan panel toko (Leaderboard & Katalog) real-time
+			updateGlobalPanel(client);
 
-			const proofUrlInput = new TextInputBuilder()
-				.setCustomId('delivery_proof_url')
-				.setLabel("LINK GAMBAR BUKTI PENGIRIMAN ITEM:")
-				.setStyle(TextInputStyle.Short)
-				.setPlaceholder("Cth: https://... (Atau ketik 'upload' untuk kirim foto di channel)")
-				.setRequired(false);
+			const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  TRANSAKSI DI-APPROVE BY ADMIN')
+				.setDescription(
+					`Transaksi \`${orderId}\` telah disetujui oleh ${interaction.user}.\n\n` +
+					`📸 **LANGKAH SELANJUTNYA:**\n` +
+					`Silakan **BALAS (REPLY) PESAN INI DENGAN FOTO BUKTI PENGIRIMAN ITEM** agar foto bukti pengiriman dikirimkan ke channel tiket pembeli!`
+				);
 
-			const notesInput = new TextInputBuilder()
-				.setCustomId('delivery_notes')
-				.setLabel("CATATAN UNTUK PEMBELI (Opsional):")
-				.setStyle(TextInputStyle.Paragraph)
-				.setPlaceholder("Cth: Item Robux 100 R$ telah berhasil dikirim ke akun xIruhamu!")
-				.setRequired(false);
-
-			const row1 = new ActionRowBuilder().addComponents(proofUrlInput);
-			const row2 = new ActionRowBuilder().addComponents(notesInput);
-			modal.addComponents(row1, row2);
-
-			await interaction.showModal(modal);
+			await interaction.update({ embeds: [updatedEmbed], components: [] });
+			await interaction.followUp({
+				content: `✅ Transaksi \`${orderId}\` berhasil di-approve! Silakan **balas (reply) pesan tersebut dengan foto bukti pengiriman item** agar foto terkirim ke pembeli.`
+			});
 			return;
 		}
 
