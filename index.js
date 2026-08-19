@@ -43,6 +43,7 @@ const client = new Client({
 });
 const userEphemeralInteractions = new Map();
 const ticketCreationInteractions = new Map();
+const buyerPendingProofs = new Map();
 
 async function deleteTicketCreationMessage(orderId, channelId) {
     const cleanOrderId = orderId ? orderId.toUpperCase() : null;
@@ -577,91 +578,44 @@ client.on(Events.MessageCreate, async message => {
 		const channelName = message.channel.name;
 		const orderId = channelName.toUpperCase();
 
-		// 1. EMBED TAMPILAN PEMBELI (Di Channel Tiket) - TANPA TOMBOL APPROVE/REJECT
-		const buyerProofEmbed = new EmbedBuilder()
-			.setTitle('📸  BEBEY STORE — BUKTI TRANSFER DITERIMA')
-			.setColor(0x2ECC71)
+		// Simpan pending proof per orderId
+		buyerPendingProofs.set(orderId, {
+			proofUrl: proofUrl,
+			author: message.author,
+			channelId: message.channelId
+		});
+
+		// Kirim Card Konfirmasi Foto Pembeli di Ticket Channel
+		const confirmProofEmbed = new EmbedBuilder()
+			.setTitle('📸  KONFIRMASI FOTO BUKTI TRANSFER')
+			.setColor(0xF1C40F)
 			.setDescription(
-				`Foto screenshot bukti transfer dari ${message.author} telah berhasil diterima oleh sistem.\n` +
-				`Bukti transfer Anda saat ini sedang diverifikasi oleh Tim Admin Bebey Store.`
+				`Halo ${message.author}! Foto screenshot bukti transfer kamu sudah ter-upload.\n\n` +
+				`‼️ **Pastikan lagi foto di bawah ya:**\n` +
+				`• Persentase baterai & jam HP keliatan jelas\n` +
+				`• Rincian transfer & tanggal keliatan jelas\n` +
+				`• Foto tidak di-crop atau disensor\n\n` +
+				`Kalau kamu sudah yakin foto ini benar, klik tombol **"✅ Saya Sudah Transfer"** di bawah untuk mengirim ke Admin!`
 			)
 			.setImage(proofUrl)
-			.setTimestamp()
-			.setFooter({ text: 'Mohon tunggu sejenak, Admin akan segera memproses transaksi Anda.' });
+			.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
-		await message.channel.send({ embeds: [buyerProofEmbed] });
-
-		// 2. EMBED TAMPILAN ADMIN (Di Admin Channel / DM) - DENGAN TOMBOL APPROVE & REJECT
-		const adminProofEmbed = new EmbedBuilder()
-			.setTitle('📸  VERIFIKASI BUKTI TRANSFER — ADMIN PANEL')
-			.setColor(0xF39C12)
-			.setDescription(
-				`Bukti pembayaran baru diterima dari pembeli ${message.author}.\n` +
-				`Mohon periksa gambar bukti transfer di bawah ini.`
-			)
-			.addFields(
-				{ name: '🆔 ORDER ID', value: `\`${orderId}\``, inline: true },
-				{ name: '👤 PEMBELI', value: `${message.author}`, inline: true },
-				{ name: '📍 TIKET CHANNEL', value: `<#${message.channelId}>`, inline: true }
-			)
-			.setImage(proofUrl)
-			.setTimestamp()
-			.setFooter({ text: 'Tekan Approve untuk menyetujui transaksi atau Reject untuk menolak.' });
-
-		const approveBtn = new ButtonBuilder()
-			.setCustomId(`admin_approve_${orderId}`)
-			.setLabel('✅ Approve & Beri Item')
+		const confirmProofBtn = new ButtonBuilder()
+			.setCustomId(`confirm_buyer_proof_${orderId}`)
+			.setLabel('✅ Saya Sudah Transfer')
 			.setStyle(ButtonStyle.Success);
 
-		const rejectBtn = new ButtonBuilder()
-			.setCustomId(`admin_reject_${orderId}`)
-			.setLabel('❌ Reject (Tolak)')
-			.setStyle(ButtonStyle.Danger);
+		const changeProofBtn = new ButtonBuilder()
+			.setCustomId(`change_buyer_proof_${orderId}`)
+			.setLabel('🔄 Ganti Foto Bukti')
+			.setStyle(ButtonStyle.Secondary);
 
-		const row = new ActionRowBuilder().addComponents(approveBtn, rejectBtn);
+		const proofRow = new ActionRowBuilder().addComponents(confirmProofBtn, changeProofBtn);
 
-		// Kirim ke Admin Channel khusus (jika diset dan valid)
-		const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
-		let sentToAdminChannel = false;
-		if (adminChannelId) {
-			try {
-				// Bersihkan bukti transfer lama di Admin Channel (jika pembeli mengirimkan revisi foto)
-				await deleteAdminChannelMessagesForOrder(client, orderId);
-
-				const adminChannel = await client.channels.fetch(adminChannelId);
-				if (adminChannel) {
-					await adminChannel.send({
-						content: `@here 🔔 **BUKTI TRANSFER MASUK (REVISI)!** Order \`${orderId}\` dari ${message.author} membutuhkan verifikasi Admin:`,
-						embeds: [adminProofEmbed],
-						components: [row]
-					});
-					sentToAdminChannel = true;
-				}
-			} catch (err) {}
-		}
-
-		// Jika Admin Channel belum diset, kirim via DM ke Owner/Admin
-		if (!sentToAdminChannel) {
-			const { getAdmins } = require('./services/admins');
-			const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
-			const adminList = getAdmins();
-
-			const targetAdminIds = new Set();
-			if (ownerId) targetAdminIds.add(ownerId);
-			adminList.forEach(a => targetAdminIds.add(a.id));
-
-			for (const adminId of targetAdminIds) {
-				try {
-					const adminUser = await client.users.fetch(adminId);
-					if (adminUser) {
-						await adminUser.send({
-							embeds: [adminProofEmbed],
-							components: [row]
-						});
-					}
-				} catch (err) {}
-			}
-		}
+		await message.channel.send({
+			embeds: [confirmProofEmbed],
+			components: [proofRow]
+		});
 	}
 });
 
@@ -1094,14 +1048,120 @@ client.on(Events.InteractionCreate, async interaction => {
 			return;
 		}
 
-		// AE. Tombol "✅ Saya Sudah Transfer"
+		// AE. Tombol "✅ Saya Sudah Transfer" (dari Kartu QRIS)
 		if (interaction.customId.startsWith('already_transferred_')) {
 			await interaction.reply({
 				content: 
-					`✅ **BUKTI TRANSFER DICATAT!**\n` +
-					`> Silakan **upload foto screenshot bukti transfer Anda** di channel ini.\n` +
-					`> Pastikan **persentase baterai**, **jam HP**, dan **rincian transfer lengkap** terlihat jelas (jangan di-crop/disensor).\n` +
-					`> Tim Admin akan segera memverifikasi dan mengirimkan produk Anda!`,
+					`📸 **HARAP UPLOAD FOTO RESI BUKTI TRANSFER!**\n` +
+					`> Silakan **upload foto screenshot resi bukti transfer Anda** di channel ini.\n` +
+					`> Setelah ter-upload, periksa kembali gambarnya lalu tekan tombol **"✅ Saya Sudah Transfer"** pada kartu konfirmasi yang muncul!`,
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
+		// AF. Tombol "✅ Saya Sudah Transfer" (Konfirmasi Foto Pembeli)
+		if (interaction.customId.startsWith('confirm_buyer_proof_')) {
+			const orderId = interaction.customId.replace('confirm_buyer_proof_', '');
+			const pendingProof = buyerPendingProofs.get(orderId);
+
+			const proofUrl = pendingProof ? pendingProof.proofUrl : (interaction.message.embeds[0]?.image?.url || null);
+
+			if (!proofUrl) {
+				return interaction.reply({
+					content: '❌ Foto bukti transfer tidak ditemukan. Silakan upload ulang foto bukti transfer Anda.',
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
+			const updatedProofEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+				.setColor(0x2ECC71)
+				.setTitle('✅  BUKTI TRANSFER DIKONFIRMASI BY PEMBELI')
+				.setDescription(
+					`Terima kasih ${interaction.user}! Bukti transfer kamu telah dikonfirmasi dan dikirimkan ke Admin Bebey Store.\n` +
+					`Mohon tunggu sejenak, Admin sedang memproses transaksi kamu.`
+				);
+
+			await interaction.update({ embeds: [updatedProofEmbed], components: [] });
+
+			// SEKARANG BARU KIRIM BUKTI KE ADMIN CHANNEL / ADMIN PANEL
+			const adminProofEmbed = new EmbedBuilder()
+				.setTitle('📸  VERIFIKASI BUKTI TRANSFER — ADMIN PANEL')
+				.setColor(0xF39C12)
+				.setDescription(
+					`Bukti pembayaran baru telah dikonfirmasi oleh pembeli ${interaction.user}.\n` +
+					`Mohon periksa gambar bukti transfer di bawah ini.`
+				)
+				.addFields(
+					{ name: '🆔 ORDER ID', value: `\`${orderId}\``, inline: true },
+					{ name: '👤 PEMBELI', value: `${interaction.user}`, inline: true },
+					{ name: '📍 TIKET CHANNEL', value: `<#${interaction.channelId}>`, inline: true }
+				)
+				.setImage(proofUrl)
+				.setTimestamp()
+				.setFooter({ text: 'Tekan Approve untuk menyetujui transaksi atau Reject untuk menolak.' });
+
+			const approveBtn = new ButtonBuilder()
+				.setCustomId(`admin_approve_${orderId}`)
+				.setLabel('✅ Approve & Beri Item')
+				.setStyle(ButtonStyle.Success);
+
+			const rejectBtn = new ButtonBuilder()
+				.setCustomId(`admin_reject_${orderId}`)
+				.setLabel('❌ Reject (Tolak)')
+				.setStyle(ButtonStyle.Danger);
+
+			const row = new ActionRowBuilder().addComponents(approveBtn, rejectBtn);
+
+			const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
+			let sentToAdminChannel = false;
+
+			if (adminChannelId) {
+				try {
+					await deleteAdminChannelMessagesForOrder(client, orderId);
+
+					const adminChannel = await client.channels.fetch(adminChannelId);
+					if (adminChannel) {
+						await adminChannel.send({
+							content: `@here 🔔 **BUKTI TRANSFER MASUK!** Order \`${orderId}\` dari ${interaction.user} membutuhkan verifikasi Admin:`,
+							embeds: [adminProofEmbed],
+							components: [row]
+						});
+						sentToAdminChannel = true;
+					}
+				} catch (err) {}
+			}
+
+			if (!sentToAdminChannel) {
+				const { getAdmins } = require('./services/admins');
+				const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
+				const adminList = getAdmins();
+
+				const targetAdminIds = new Set();
+				if (ownerId) targetAdminIds.add(ownerId);
+				adminList.forEach(a => targetAdminIds.add(a.id));
+
+				for (const adminId of targetAdminIds) {
+					try {
+						const adminUser = await client.users.fetch(adminId);
+						if (adminUser) {
+							await adminUser.send({
+								embeds: [adminProofEmbed],
+								components: [row]
+							});
+						}
+					} catch (err) {}
+				}
+			}
+			return;
+		}
+
+		// AG. Tombol "🔄 Ganti Foto Bukti"
+		if (interaction.customId.startsWith('change_buyer_proof_')) {
+			await interaction.reply({
+				content: 
+					`📸 **SILAKAN UPLOAD FOTO BUKTI TRANSFER YANG BARU!**\n` +
+					`> Silakan upload foto screenshot bukti transfer yang baru di channel ini.`,
 				flags: MessageFlags.Ephemeral
 			});
 			return;
