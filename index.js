@@ -44,6 +44,31 @@ const client = new Client({
 const userEphemeralInteractions = new Map();
 const ticketCreationInteractions = new Map();
 const buyerPendingProofs = new Map();
+const qrisMessages = new Map();
+
+async function disableQrisButtonForOrder(orderId, channel) {
+	const cleanOrderId = orderId ? orderId.toUpperCase() : null;
+	if (cleanOrderId && qrisMessages.has(cleanOrderId)) {
+		const qrisMsg = qrisMessages.get(cleanOrderId);
+		try {
+			await qrisMsg.edit({ components: [] });
+		} catch (e) {}
+	}
+	// Fallback: cari dan nonaktifkan pesan QRIS di channel jika map terestart
+	if (channel) {
+		try {
+			const msgs = await channel.messages.fetch({ limit: 25 });
+			for (const [id, msg] of msgs) {
+				if (msg.embeds.length > 0 && msg.components.length > 0) {
+					const title = msg.embeds[0].title || '';
+					if (title.includes('INSTRUKSI PEMBAYARAN QRIS') || title.includes('CARA BAYAR VIA QRIS')) {
+						await msg.edit({ components: [] });
+					}
+				}
+			}
+		} catch (e) {}
+	}
+}
 
 async function deleteTicketCreationMessage(orderId, channelId) {
     const cleanOrderId = orderId ? orderId.toUpperCase() : null;
@@ -345,10 +370,11 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		} else {
 			// Jika item tidak perlu Username Roblox -> Langsung kirim Pesan QRIS
 			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
-			await ticketChannel.send({
+			const qrisMsg = await ticketChannel.send({
 				embeds: qrisCard.embeds,
 				components: qrisCard.components
 			});
+			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 		}
 
 		// Catat pesanan baru ke Supabase
@@ -578,14 +604,26 @@ client.on(Events.MessageCreate, async message => {
 		const channelName = message.channel.name;
 		const orderId = channelName.toUpperCase();
 
-		// Simpan pending proof per orderId
-		buyerPendingProofs.set(orderId, {
-			proofUrl: proofUrl,
-			author: message.author,
-			channelId: message.channelId
-		});
+		// 1. Hilangkan tombol "Saya Sudah Transfer" pada Kartu QRIS
+		await disableQrisButtonForOrder(orderId, message.channel);
 
-		// Kirim Card Konfirmasi Foto Pembeli di Ticket Channel
+		// 2. Hilangkan tombol pada Kartu Konfirmasi Foto Bukti Sebelumnya (jika pembeli mengganti foto)
+		if (buyerPendingProofs.has(orderId)) {
+			const prevData = buyerPendingProofs.get(orderId);
+			if (prevData && prevData.confirmMsg) {
+				try {
+					const oldEmbed = EmbedBuilder.from(prevData.confirmMsg.embeds[0])
+						.setColor(0x95A5A6)
+						.setTitle('📸  FOTO BUKTI TRANSFER LAMA (DIGANTI)');
+					await prevData.confirmMsg.edit({
+						embeds: [oldEmbed],
+						components: []
+					});
+				} catch (e) {}
+			}
+		}
+
+		// Kirim Card Konfirmasi Foto Pembeli Baru di Ticket Channel
 		const confirmProofEmbed = new EmbedBuilder()
 			.setTitle('📸  KONFIRMASI FOTO BUKTI TRANSFER')
 			.setColor(0xF1C40F)
@@ -612,9 +650,17 @@ client.on(Events.MessageCreate, async message => {
 
 		const proofRow = new ActionRowBuilder().addComponents(confirmProofBtn, changeProofBtn);
 
-		await message.channel.send({
+		const sentConfirmMsg = await message.channel.send({
 			embeds: [confirmProofEmbed],
 			components: [proofRow]
+		});
+
+		// Simpan pending proof dan referensi pesan konfirmasi baru
+		buyerPendingProofs.set(orderId, {
+			proofUrl: proofUrl,
+			author: message.author,
+			channelId: message.channelId,
+			confirmMsg: sentConfirmMsg
 		});
 	}
 });
@@ -924,10 +970,11 @@ client.on(Events.InteractionCreate, async interaction => {
 				const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
 				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
 
-				await interaction.channel.send({
+				const qrisMsg = await interaction.channel.send({
 					embeds: qrisCard.embeds,
 					components: qrisCard.components
 				});
+				qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 				return;
 			}
 
@@ -1041,10 +1088,11 @@ client.on(Events.InteractionCreate, async interaction => {
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
 			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
 
-			await interaction.channel.send({
+			const qrisMsg = await interaction.channel.send({
 				embeds: qrisCard.embeds,
 				components: qrisCard.components
 			});
+			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 			return;
 		}
 
@@ -1063,6 +1111,10 @@ client.on(Events.InteractionCreate, async interaction => {
 		// AF. Tombol "✅ Saya Sudah Transfer" (Konfirmasi Foto Pembeli)
 		if (interaction.customId.startsWith('confirm_buyer_proof_')) {
 			const orderId = interaction.customId.replace('confirm_buyer_proof_', '');
+
+			// Hilangkan tombol "Saya Sudah Transfer" pada Kartu QRIS
+			await disableQrisButtonForOrder(orderId, interaction.channel);
+
 			const pendingProof = buyerPendingProofs.get(orderId);
 
 			const proofUrl = pendingProof ? pendingProof.proofUrl : (interaction.message.embeds[0]?.image?.url || null);
