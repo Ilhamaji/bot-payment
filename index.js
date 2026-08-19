@@ -76,6 +76,47 @@ for (const file of commandFiles) {
 	}
 }
 
+function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
+	const itemEmoji = selectedItem.emoji || '📦';
+	const formattedPrice = `Rp ${totalAmount.toLocaleString('id-ID')}`;
+
+	const paymentDescription = 
+		`📦 **Produk**\n` +
+		`${itemEmoji} **${selectedItem.name}**\n\n` +
+		`💰 **Total Bayar**\n` +
+		`**${formattedPrice}**\n\n` +
+		`🆔 **Order ID**\n` +
+		`\`${orderId}\`\n\n` +
+		`📌 **Cara Bayar**\n` +
+		`1️⃣ Scan QRIS di bawah\n` +
+		`2️⃣ Bayar **tepat ${formattedPrice}**\n` +
+		`3️⃣ Screenshot bukti transfer\n\n` +
+		`‼️ **Screenshot wajib keliatan:**\n` +
+		`🔋 Persentase baterai\n` +
+		`🕒 Jam HP\n` +
+		`📖 Rincian transfer lengkap\n` +
+		`❌ Jangan di-crop atau disensor!\n\n` +
+		`4️⃣ Kirim bukti di sini\n` +
+		`5️⃣ Klik **Saya Sudah Transfer**`;
+
+	const paymentEmbed = new EmbedBuilder()
+		.setTitle(`💳  Scan QRIS untuk Membayar`)
+		.setColor(0xE67E22)
+		.setDescription(paymentDescription.trim())
+		.setImage(qrisImage)
+		.setTimestamp()
+		.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
+
+	const transferredBtn = new ButtonBuilder()
+		.setCustomId(`already_transferred_${orderId}`)
+		.setLabel('✅ Saya Sudah Transfer')
+		.setStyle(ButtonStyle.Success);
+
+	const row = new ActionRowBuilder().addComponents(transferredBtn);
+
+	return { embeds: [paymentEmbed], components: [row] };
+}
+
 async function createTicketChannel(interaction, selectedItem, robloxData = 'Tidak Perlu') {
 	const robloxUsername = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.username : String(robloxData);
 	const robloxDisplayName = (typeof robloxData === 'object' && robloxData !== null) ? (robloxData.displayName || robloxUsername) : robloxUsername;
@@ -216,22 +257,10 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 			});
 		} else {
 			// Jika item tidak perlu Username Roblox -> Langsung kirim Pesan QRIS
-			const paymentDescription = 
-				`📌 **INSTRUKSI PEMBAYARAN:**\n` +
-				`1️⃣ Transfer **Rp ${totalAmount.toLocaleString('id-ID')}** ke QRIS Bebey Store di bawah ini.\n` +
-				`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
-				`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
-
-			const paymentEmbed = new EmbedBuilder()
-				.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
-				.setColor(0x3498DB)
-				.setDescription(paymentDescription.trim())
-				.setImage(qrisImage)
-				.setTimestamp()
-				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
-
+			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
 			await ticketChannel.send({
-				embeds: [paymentEmbed]
+				embeds: qrisCard.embeds,
+				components: qrisCard.components
 			});
 		}
 
@@ -777,24 +806,45 @@ client.on(Events.InteractionCreate, async interaction => {
 
 			await interaction.update({ embeds: [updatedSafetyEmbed], components: [] });
 
-			// Kirim Pesan 6: QRIS Code & Instruksi Pembayaran
+			// Ambil Detail Order ID dari Supabase & Items Config
+			delete require.cache[require.resolve('./config/items')];
+			const catalogItems = require('./config/items');
+			const { supabase } = require('./services/supabase');
+			const { data: purchase } = await supabase.from('purchases').select('item_name, price').eq('order_id', orderId).single();
+
+			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
+			let totalAmount = 20000;
+
+			if (purchase) {
+				totalAmount = purchase.price || 20000;
+				const foundItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
+				if (foundItem) {
+					selectedItem = foundItem;
+				} else {
+					selectedItem = { name: purchase.item_name, emoji: '📦' };
+				}
+			}
+
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
+			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
 
-			const paymentDescription = 
-				`📌 **INSTRUKSI PEMBAYARAN:**\n` +
-				`1️⃣ Transfer sesuai nominal QRIS Bebey Store di bawah ini.\n` +
-				`2️⃣ Upload foto screenshot bukti transfer Anda di channel ini.\n` +
-				`3️⃣ Tim Admin akan memverifikasi dan mengirimkan produk Anda.`;
+			await interaction.channel.send({
+				embeds: qrisCard.embeds,
+				components: qrisCard.components
+			});
+			return;
+		}
 
-			const paymentEmbed = new EmbedBuilder()
-				.setTitle(`💳  INSTRUKSI PEMBAYARAN & QRIS CODE`)
-				.setColor(0x3498DB)
-				.setDescription(paymentDescription.trim())
-				.setImage(qrisImage)
-				.setTimestamp()
-				.setFooter({ text: '🔒 Bebey Store Official • QRIS Payment Gate' });
-
-			await interaction.channel.send({ embeds: [paymentEmbed] });
+		// AE. Tombol "✅ Saya Sudah Transfer"
+		if (interaction.customId.startsWith('already_transferred_')) {
+			await interaction.reply({
+				content: 
+					`✅ **BUKTI TRANSFER DICATAT!**\n` +
+					`> Silakan **upload foto screenshot bukti transfer Anda** di channel ini.\n` +
+					`> Pastikan **persentase baterai**, **jam HP**, dan **rincian transfer lengkap** terlihat jelas (jangan di-crop/disensor).\n` +
+					`> Tim Admin akan segera memverifikasi dan mengirimkan produk Anda!`,
+				flags: MessageFlags.Ephemeral
+			});
 			return;
 		}
 
