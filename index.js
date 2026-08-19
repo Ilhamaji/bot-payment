@@ -535,33 +535,21 @@ client.on(Events.InteractionCreate, async interaction => {
 			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
 			const userId = interaction.user.id;
 
-			// Cek apakah user sudah memiliki pesan privat ephemeral yang aktif
-			const existingInteraction = userEphemeralInteractions.get(userId);
-
-			if (existingInteraction) {
-				try {
-					// Edit/update pesan privat yang sudah ada milik user tersebut
-					await existingInteraction.editReply({
-						content: subMenuData.content,
-						components: subMenuData.components
-					});
-					// Acknowledge tombol panel publik tanpa membuat pesan baru
-					await interaction.deferUpdate();
-					return;
-				} catch (err) {
-					// Jika pesan privat sebelumnya sudah ditutup/kadaluarsa, hapus dari map
-					userEphemeralInteractions.delete(userId);
-				}
+			// Jika ditekan dari balasan privat ephemeral yang sudah ada -> Update in-place
+			if (interaction.message && interaction.message.flags && interaction.message.flags.has(MessageFlags.Ephemeral)) {
+				await interaction.update({
+					content: subMenuData.content,
+					components: subMenuData.components
+				});
+			} else {
+				// Jika ditekan dari panel publik -> Kirim/Replace balasan privat baru
+				await interaction.reply({
+					content: subMenuData.content,
+					components: subMenuData.components,
+					flags: MessageFlags.Ephemeral
+				});
+				userEphemeralInteractions.set(userId, interaction);
 			}
-
-			// Jika belum ada pesan privat aktif, buat pesan privat baru & simpan ke map
-			await interaction.reply({
-				content: subMenuData.content,
-				components: subMenuData.components,
-				flags: MessageFlags.Ephemeral
-			});
-
-			userEphemeralInteractions.set(userId, interaction);
 			return;
 		}
 
