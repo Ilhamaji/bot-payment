@@ -590,16 +590,17 @@ client.on(Events.InteractionCreate, async interaction => {
 			const orderId = interaction.customId.replace('modal_rechange_roblox_', '');
 			let newUsername = interaction.fields.getTextInputValue('new_roblox_username').trim();
 
-			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
 			const { validateRobloxUsername, getRobloxAvatarHeadshot } = require('./services/roblox');
 			const robloxCheck = await validateRobloxUsername(newUsername);
 
 			if (!robloxCheck.valid) {
-				return interaction.editReply({
-					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n> Username Roblox \`${newUsername}\` tidak terdaftar di Roblox.`
+				return interaction.reply({
+					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n> Username Roblox \`${newUsername}\` tidak terdaftar di Roblox.`,
+					flags: MessageFlags.Ephemeral
 				});
 			}
+
+			await interaction.deferUpdate();
 
 			// Update Username Roblox di Supabase
 			const { supabase } = require('./services/supabase');
@@ -635,10 +636,6 @@ client.on(Events.InteractionCreate, async interaction => {
 					await confirmMsg.edit({ embeds: [updatedEmbed] });
 				}
 			} catch (e) {}
-
-			await interaction.editReply({
-				content: `✅ **BERHASIL!** Username Roblox berhasil diganti menjadi \`${robloxCheck.username}\` (${robloxCheck.displayName}). Silakan tekan **"✅ Iya, Ini Akun Saya"** di channel tiket.`
-			});
 			return;
 		}
 		return;
