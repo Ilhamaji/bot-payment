@@ -124,13 +124,6 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const robloxCheck = await validateRobloxUsername(newUsername);
 
-			if (!robloxCheck.valid) {
-				return interaction.reply({
-					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n> Username Roblox \`${newUsername}\` tidak terdaftar di Roblox.`,
-					flags: MessageFlags.Ephemeral
-				});
-			}
-
 			await interaction.deferUpdate();
 
 			await supabase.from('purchases').update({ roblox_username: robloxCheck.username }).eq('order_id', orderId);
@@ -139,17 +132,18 @@ async function handleBuyerInteraction(interaction, client) {
 
 			try {
 				const fetchedMsgs = await interaction.channel.messages.fetch({ limit: 20 });
-				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('Konfirmasi Akun Roblox'));
+				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('AKUN ROBLOX'));
 
 				if (confirmMsg) {
 					const updatedEmbed = new EmbedBuilder()
-						.setTitle('👤  Konfirmasi Akun Roblox')
+						.setTitle('👤  AKUN ROBLOX KAMU')
 						.setColor(0xF1C40F)
 						.setDescription(
-							`Apakah ini akun kamu?\n\n` +
-							`**Username**\n\`${robloxCheck.username}\`\n\n` +
-							`**Display Name**\n**${robloxCheck.displayName || robloxCheck.username}**\n\n` +
-							`**User ID**\n\`${robloxCheck.id || 'N/A'}\``
+							`Coba cek, apakah ini akun Roblox kamu?\n\n` +
+							`📛 **Username:** \`${robloxCheck.username}\`\n` +
+							`✨ **Display Name:** **${robloxCheck.displayName || robloxCheck.username}**\n` +
+							`🔢 **User ID:** \`${robloxCheck.id || 'N/A'}\`\n\n` +
+							`Kalau benar, klik tombol di bawah ya! 👇`
 						)
 						.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
@@ -159,7 +153,9 @@ async function handleBuyerInteraction(interaction, client) {
 
 					await confirmMsg.edit({ embeds: [updatedEmbed] });
 				}
-			} catch (e) {}
+			} catch (e) {
+				console.warn('⚠️ Error updating Roblox confirmation embed:', e);
+			}
 			return;
 		}
 	}
