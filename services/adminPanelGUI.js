@@ -129,7 +129,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const optsInput = new TextInputBuilder()
 				.setCustomId('add_opts')
-				.setLabel('SETTING & CATATAN TIKET (Format bebas/opsi):')
+				.setLabel('SETTING & CATATAN TIKET (Opsional):')
 				.setStyle(TextInputStyle.Paragraph)
 				.setPlaceholder('username:true | limit:true | catatan:Catatan penting di tiket...')
 				.setValue('username:true | limit:true')
@@ -438,14 +438,14 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const optsInput = new TextInputBuilder()
 				.setCustomId('edit_opts')
-				.setLabel('SETTING (username:true/false | limit:true/false):')
+				.setLabel('SETTING (username:true | limit:true):')
 				.setStyle(TextInputStyle.Short)
 				.setValue(`username:${reqUser} | limit:${reqLimit}`)
 				.setRequired(false);
 
 			const notesInput = new TextInputBuilder()
 				.setCustomId('edit_notes')
-				.setLabel('CATATAN KHUSUS TIKET (Kosongkan jika default):')
+				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
 				.setStyle(TextInputStyle.Paragraph)
 				.setValue(item.notes || '')
 				.setRequired(false);
