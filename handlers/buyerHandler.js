@@ -496,6 +496,84 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
+		// Change Roblox Username Button
+		if (customId.startsWith('change_roblox_')) {
+			const orderId = customId.replace('change_roblox_', '');
+
+			const modal = new ModalBuilder()
+				.setCustomId(`modal_rechange_roblox_${orderId}`)
+				.setTitle('GANTI USERNAME ROBLOX');
+
+			const usernameInput = new TextInputBuilder()
+				.setCustomId('new_roblox_username')
+				.setLabel("USERNAME ROBLOX BARU (Tanpa Simbol @):")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("Cth: Vevalsss (Langsung username, tanpa @)")
+				.setRequired(true)
+				.setMinLength(3)
+				.setMaxLength(30);
+
+			const actionRow = new ActionRowBuilder().addComponents(usernameInput);
+			modal.addComponents(actionRow);
+
+			return interaction.showModal(modal);
+		}
+
+		// Check Limit Warning Button ("Akun Saya Limit")
+		if (customId.startsWith('limit_warning_')) {
+			await interaction.reply({
+				content: 
+					`⚠️ **AKUN TERKENA LIMIT!**\n` +
+					`> Mohon gunakan akun Roblox lain yang **belum terkena limit** untuk menerima Robux.\n` +
+					`> Silakan scroll ke atas dan tekan tombol **"✏️ Ganti Username"** pada kartu Konfirmasi Akun Roblox untuk mengganti ke akun lain.`,
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
+		// Limit Guide Button ("Cara Cek Limit")
+		if (customId.startsWith('limit_guide_')) {
+			const guideEmbed = new EmbedBuilder()
+				.setTitle('📖  PANDUAN CEK LIMIT AKUN ROBLOX')
+				.setColor(0x5865F2)
+				.setDescription(
+					`Berikut adalah langkah-langkah mudah untuk mengecek limit akun Roblox Anda:\n\n` +
+					`1️⃣ Buka browser dan login ke akun Roblox Anda di **roblox.com**.\n` +
+					`2️⃣ Masuk ke menu **Settings / Pengaturan** > **Privacy / Keamanan**.\n` +
+					`3️⃣ Cek apakah fitur transaksi/penerimaan Robux Anda masih aktif atau sedang dibatasi oleh sistem Roblox.\n` +
+					`4️⃣ Jika sisa limit cukup untuk transaksi ini, tekan tombol **"✅ Tidak Limit"**.`
+				)
+				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
+
+			await interaction.reply({
+				embeds: [guideEmbed],
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
+		// Check Again Button ("Cek Dulu Deh")
+		if (customId.startsWith('check_again_')) {
+			const guideEmbed = new EmbedBuilder()
+				.setTitle('📖  PANDUAN CEK LIMIT AKUN ROBLOX')
+				.setColor(0x5865F2)
+				.setDescription(
+					`ℹ️ **SILAKAN CEK AKUN KAMU DULU!**\n\n` +
+					`Berikut langkah-langkah mudah untuk mengecek limit akun Roblox kamu:\n\n` +
+					`1️⃣ Buka browser dan login ke **roblox.com**.\n` +
+					`2️⃣ Masuk ke menu **Settings / Pengaturan** > **Privacy**.\n` +
+					`3️⃣ Cek apakah fitur penerimaan Robux kamu masih aktif atau dibatasi.\n` +
+					`4️⃣ Jika sisa limit akun aman, silakan kembali ke pesan di atas dan klik **"✅ Yakin, Lanjut Bayar"**!`
+				)
+				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
+
+			await interaction.reply({
+				embeds: [guideEmbed],
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
 		// Category Sub-Menu Filter
 		if (customId.startsWith('cat_filter_')) {
 			const catName = customId.replace('cat_filter_', '');
