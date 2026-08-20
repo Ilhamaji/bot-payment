@@ -237,7 +237,7 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
         .setTimestamp()
         .setFooter({ text: '📊 Bebey Store Official • Automated Monthly Sales Report' });
 
-    // Cari Channel Tujuan (Prioritas: parameter -> REPORT_CHANNEL_ID -> ADMIN_CHANNEL_ID -> Owner DM)
+    // Cari Channel Tujuan (REPORT_CHANNEL_ID -> ADMIN_CHANNEL_ID)
     const reportChannelId = targetChannelId || (process.env.REPORT_CHANNEL_ID ? process.env.REPORT_CHANNEL_ID.trim() : null) || (process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null);
 
     let sent = false;
@@ -247,7 +247,7 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
             const channel = await clientInstance.channels.fetch(reportChannelId);
             if (channel) {
                 await channel.send({
-                    content: `📊 **LAPORAN BULANAN BARU!** ${ownerTag}`,
+                    content: `📊 **LAPORAN BULANAN OTOMATIS!** ${ownerTag}`,
                     embeds: [embed],
                     files: [attachment]
                 });
@@ -259,20 +259,8 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
         }
     }
 
-    // Fallback: Kirim via DM ke Owner jika belum terkirim
-    if (!sent && ownerId) {
-        try {
-            const ownerUser = await clientInstance.users.fetch(ownerId);
-            if (ownerUser) {
-                await ownerUser.send({
-                    embeds: [embed],
-                    files: [attachment]
-                });
-                console.log(`[LAPORAN BULANAN] Laporan ${monthName} ${year} berhasil dikirim ke DM Owner!`);
-            }
-        } catch (err) {
-            console.error('Error sending monthly report to Owner DM:', err);
-        }
+    if (!sent) {
+        console.warn(`[LAPORAN BULANAN] ⚠️ Laporan tidak dapat dikirim ke channel. Pastikan REPORT_CHANNEL_ID atau ADMIN_CHANNEL_ID di .env sudah benar.`);
     }
 
     return { totalTransactions, totalRevenue, monthName, year };
