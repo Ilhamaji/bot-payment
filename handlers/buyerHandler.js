@@ -98,11 +98,11 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const robloxCheck = await validateRobloxUsername(robloxUsername);
 
-			if (!robloxCheck.valid) {
+			if (!robloxCheck.valid || !robloxCheck.found) {
 				return interaction.editReply({
 					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n` +
 						`> Username Roblox \`${robloxUsername}\` tidak terdaftar di database resmi Roblox.\n` +
-						`> Silakan periksa ejaan Username Anda dan coba lagi (tanpa menggunakan simbol @).`
+						`> Silakan periksa kembali ejaan Username Anda dan coba pilih produk lagi (langsung username, tanpa simbol @).`
 				});
 			}
 
@@ -124,16 +124,22 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const robloxCheck = await validateRobloxUsername(newUsername);
 
+			if (!robloxCheck.valid || !robloxCheck.found) {
+				return interaction.reply({
+					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n> Username Roblox \`${newUsername}\` tidak terdaftar di database resmi Roblox. Silakan periksa kembali ejaannya.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
 			await interaction.deferUpdate();
 
 			await supabase.from('purchases').update({ roblox_username: robloxCheck.username }).eq('order_id', orderId);
 
-			const isFound = robloxCheck.id !== null && robloxCheck.found !== false;
-			const avatarUrl = isFound ? await getRobloxAvatarHeadshot(robloxCheck.id) : null;
+			const avatarUrl = await getRobloxAvatarHeadshot(robloxCheck.id);
 
 			try {
 				const fetchedMsgs = await interaction.channel.messages.fetch({ limit: 20 });
-				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && (m.embeds[0].title.includes('AKUN ROBLOX') || m.embeds[0].title.includes('TIDAK DITEMUKAN')));
+				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('AKUN ROBLOX'));
 
 				const changeNoBtn = new ButtonBuilder()
 					.setCustomId(`change_roblox_${orderId}`)
@@ -141,47 +147,30 @@ async function handleBuyerInteraction(interaction, client) {
 					.setStyle(ButtonStyle.Danger);
 
 				if (confirmMsg) {
-					if (isFound) {
-						const updatedEmbed = new EmbedBuilder()
-							.setTitle('👤  AKUN ROBLOX KAMU')
-							.setColor(0xF1C40F)
-							.setDescription(
-								`Coba cek, apakah ini akun Roblox kamu?\n\n` +
-								`📛 **Username:** \`${robloxCheck.username}\`\n` +
-								`✨ **Display Name:** **${robloxCheck.displayName || robloxCheck.username}**\n` +
-								`🔢 **User ID:** \`${robloxCheck.id || 'N/A'}\`\n\n` +
-								`Kalau benar, klik tombol di bawah ya! 👇`
-							)
-							.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+					const updatedEmbed = new EmbedBuilder()
+						.setTitle('👤  AKUN ROBLOX KAMU')
+						.setColor(0xF1C40F)
+						.setDescription(
+							`Coba cek, apakah ini akun Roblox kamu?\n\n` +
+							`📛 **Username:** \`${robloxCheck.username}\`\n` +
+							`✨ **Display Name:** **${robloxCheck.displayName || robloxCheck.username}**\n` +
+							`🔢 **User ID:** \`${robloxCheck.id || 'N/A'}\`\n\n` +
+							`Kalau benar, klik tombol di bawah ya! 👇`
+						)
+						.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
-						if (avatarUrl) {
-							updatedEmbed.setThumbnail(avatarUrl);
-						}
-
-						const confirmYesBtn = new ButtonBuilder()
-							.setCustomId(`confirm_roblox_${orderId}`)
-							.setLabel('✅ Iya, Ini Akun Saya')
-							.setStyle(ButtonStyle.Success);
-
-						const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
-
-						await confirmMsg.edit({ embeds: [updatedEmbed], components: [confirmRow] });
-					} else {
-						const notFoundEmbed = new EmbedBuilder()
-							.setTitle('❌  AKUN ROBLOX TIDAK DITEMUKAN')
-							.setColor(0xED4245)
-							.setDescription(
-								`⚠️ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n\n` +
-								`> Username Roblox \`${robloxCheck.username}\` tidak terdaftar di database resmi Roblox.\n` +
-								`> Silakan periksa kembali ejaan Username kamu (tanpa menggunakan simbol @).\n` +
-								`> Tekan tombol **✏️ Ganti Username** di bawah untuk memasukkan Username Roblox yang benar!`
-							)
-							.setFooter({ text: `💖 Bebey Store • ${orderId}` });
-
-						const notFoundRow = new ActionRowBuilder().addComponents(changeNoBtn);
-
-						await confirmMsg.edit({ embeds: [notFoundEmbed], components: [notFoundRow] });
+					if (avatarUrl) {
+						updatedEmbed.setThumbnail(avatarUrl);
 					}
+
+					const confirmYesBtn = new ButtonBuilder()
+						.setCustomId(`confirm_roblox_${orderId}`)
+						.setLabel('✅ Iya, Ini Akun Saya')
+						.setStyle(ButtonStyle.Success);
+
+					const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
+
+					await confirmMsg.edit({ embeds: [updatedEmbed], components: [confirmRow] });
 				}
 			} catch (e) {
 				console.warn('⚠️ Error updating Roblox confirmation embed:', e);

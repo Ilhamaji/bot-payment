@@ -35,12 +35,13 @@ async function validateRobloxUsername(username) {
             }
         }
     } catch (err) {
-        console.warn('⚠️ Gagal menghubungi Roblox API:', err);
+        console.warn('⚠️ Gagal menghubungi Roblox API, bypass validasi:', err);
+        return { valid: true, found: true, username: cleanUsername, displayName: cleanUsername, id: null };
     }
 
-    // Return found: false jika username tidak ditemukan di Roblox
+    // Username tidak ditemukan di database resmi Roblox API
     return {
-        valid: true,
+        valid: false,
         found: false,
         username: cleanUsername,
         displayName: cleanUsername,
