@@ -712,23 +712,16 @@ async function handleAdminPanelInteraction(interaction, client) {
 				return interaction.editReply({ content: '❌ Bulan harus berupa angka 1-12 dan Tahun berupa 4 digit (cth: 2026).' });
 			}
 
-			const { fetchMonthlyTransactions, generateExcelBuffer, buildReportEmbedSummary } = require('./reportManager');
-			const transactions = await fetchMonthlyTransactions(year, month);
+			const { sendMonthlyReport } = require('./reportManager');
+			const result = await sendMonthlyReport(client, interaction.channelId, year, month);
 
-			if (!transactions || transactions.length === 0) {
+			if (!result || result.totalTransactions === 0) {
 				return interaction.editReply({ content: `⚠️ Tidak ada data transaksi terverifikasi (fulfilled) untuk bulan **${month}/${year}**.` });
 			}
 
-			const excelBuffer = await generateExcelBuffer(year, month, transactions);
-			const summaryEmbed = buildReportEmbedSummary(year, month, transactions);
-
-			const fileName = `Laporan_Penjualan_BebeyStore_${year}_${String(month).padStart(2, '0')}.xlsx`;
-			const attachment = new AttachmentBuilder(excelBuffer, { name: fileName });
-
 			return interaction.editReply({
-				content: `✅ **Laporan Penjualan Excel Berhasil Dibuat!**`,
-				embeds: [summaryEmbed],
-				files: [attachment]
+				content: `✅ **Laporan Excel Penjualan Periode ${result.monthName} ${result.year} berhasil dibuat & dikirim ke channel ini!**\n` +
+					`└ Total: **${result.totalTransactions} Transaksi** | Total Omset: **Rp ${result.totalRevenue.toLocaleString('id-ID')}**`
 			});
 		}
 
