@@ -721,6 +721,14 @@ client.on(Events.InteractionCreate, async interaction => {
 				return interaction.reply({ content: '❌ Item tidak ditemukan di katalog toko.', flags: MessageFlags.Ephemeral });
 			}
 
+			// Cek apakah item sedang ditahan oleh Admin (Out of Stock / Maintenance)
+			if (selectedItem.available === false || selectedItem.hold === true) {
+				return interaction.reply({
+					content: `⛔ **PRODUK SEMENTARA DITAHAN!**\n> Produk **${selectedItem.name}** saat ini sedang ditahan oleh Admin (Stok Kosong / Maintenance) dan tidak dapat dibeli untuk sementara.\n> Silakan cek kembali nanti atau pilih produk lainnya.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
 			// Cek apakah item memerlukan input username Roblox
 			if (selectedItem.requireUsername === false) {
 				// Tidak perlu username -> Langsung buat tiket

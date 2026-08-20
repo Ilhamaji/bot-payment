@@ -65,11 +65,13 @@ function buildItemCategorySelectMenu(item) {
 }
 
 function buildItemCheckboxMenu(item) {
+	const isHeld = item.available === false || item.hold === true;
+
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId(`ap_checkbox_opts_${item.id}`)
 		.setPlaceholder('☑️ Centang Opsi Setting (Multi-Select Checkbox)')
 		.setMinValues(0)
-		.setMaxValues(2)
+		.setMaxValues(3)
 		.addOptions(
 			new StringSelectMenuOptionBuilder()
 				.setLabel('Perlu Username Roblox')
@@ -82,7 +84,13 @@ function buildItemCheckboxMenu(item) {
 				.setValue('req_limit')
 				.setDescription('Pembeli akan melewati panduan Cek Limit Roblox')
 				.setEmoji('🔍')
-				.setDefault(item.requireLimitCheck !== false)
+				.setDefault(item.requireLimitCheck !== false),
+			new StringSelectMenuOptionBuilder()
+				.setLabel('Tahan Produk (Non-aktifkan Sementara)')
+				.setValue('req_hold')
+				.setDescription('Produk tidak akan bisa dibeli oleh pembeli untuk sementara')
+				.setEmoji('⛔')
+				.setDefault(isHeld)
 		);
 
 	return new ActionRowBuilder().addComponents(selectMenu);
@@ -102,11 +110,13 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 	const effectiveEmoji = getItemEmoji(item);
 	const reqUserLabel = item.requireUsername !== false ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
 	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
+	const isHeld = item.available === false || item.hold === true;
+	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
 
 	const embed = new EmbedBuilder()
 		.setTitle(`📦  ${actionTitle}: ${item.name}`)
-		.setColor(0x2ECC71)
+		.setColor(isHeld ? 0xED4245 : 0x2ECC71)
 		.setDescription(
 			`Berikut adalah detail & setting produk **${item.name}**:\n\n` +
 			`💡 *Ubah Kategori & Centang Setting di bawah, lalu tekan **✅ Konfirmasi & Selesai Edit** jika sudah selesai!*`
@@ -117,6 +127,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 			{ name: '📁 Kategori', value: `${catEmoji} \`${item.category || 'General'}\``, inline: true },
 			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
 			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
+			{ name: '⏸️ Status Pembelian', value: statusLabel, inline: true },
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
 		.setTimestamp()
@@ -573,8 +584,11 @@ async function handleAdminPanelInteraction(interaction, client) {
 				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
 			}
 
+			const isHeld = selectedValues.includes('req_hold');
 			item.requireUsername = selectedValues.includes('req_username');
 			item.requireLimitCheck = selectedValues.includes('req_limit');
+			item.available = !isHeld;
+			item.hold = isHeld;
 
 			saveItemsData(items, itemsFilePath);
 			updateGlobalPanel(client);

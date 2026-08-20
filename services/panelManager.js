@@ -216,7 +216,12 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
             grouped[catName].forEach(item => {
                 const itemEmoji = getItemEmoji(item);
                 const parsed = parseEmoji(itemEmoji);
-                catalogDescription += `└ ${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
+                const isHeld = item.available === false || item.hold === true;
+                if (isHeld) {
+                    catalogDescription += `└ ⛔ ~**${item.name}**~ • \`Rp ${item.price.toLocaleString('id-ID')}\` *(Ditahan / Stok Kosong)*\n`;
+                } else {
+                    catalogDescription += `└ ${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
+                }
             });
             catalogDescription += `\n`;
         });
@@ -232,7 +237,12 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
             filteredItems.forEach(item => {
                 const itemEmoji = getItemEmoji(item);
                 const parsed = parseEmoji(itemEmoji);
-                catalogDescription += `${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
+                const isHeld = item.available === false || item.hold === true;
+                if (isHeld) {
+                    catalogDescription += `⛔ ~**${item.name}**~ • \`Rp ${item.price.toLocaleString('id-ID')}\` *(Ditahan / Stok Kosong)*\n`;
+                } else {
+                    catalogDescription += `${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
+                }
                 if (item.description) {
                     catalogDescription += `└ *${item.description}*\n\n`;
                 } else {
@@ -356,12 +366,16 @@ function buildCategorySubMenuEphemeral(items, catName) {
     const selectOptions = selectItemsList.map(item => {
         const itemEmoji = getItemEmoji(item);
         const parsed = parseEmoji(itemEmoji);
-        const opt = new StringSelectMenuOptionBuilder()
-            .setLabel(`${item.name}`)
-            .setValue(item.id)
-            .setDescription(`Rp ${item.price.toLocaleString('id-ID')}`);
+        const isHeld = item.available === false || item.hold === true;
 
-        if (parsed.option) {
+        const opt = new StringSelectMenuOptionBuilder()
+            .setLabel(isHeld ? `⛔ ${item.name} (Ditahan)` : `${item.name}`)
+            .setValue(item.id)
+            .setDescription(isHeld ? `⛔ Sementara tidak dapat dibeli` : `Rp ${item.price.toLocaleString('id-ID')}`);
+
+        if (isHeld) {
+            opt.setEmoji('⛔');
+        } else if (parsed.option) {
             try {
                 opt.setEmoji(parsed.option);
             } catch (e) {
