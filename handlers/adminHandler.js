@@ -75,6 +75,42 @@ async function handleAdminInteraction(interaction, client) {
 			await interaction.showModal(modal);
 			return true;
 		}
+
+		if (customId.startsWith('sos_done_')) {
+			if (!isAdmin(interaction.user.id)) {
+				await interaction.reply({ 
+					content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat menyelesaikan panggilan SOS.', 
+					flags: MessageFlags.Ephemeral 
+				});
+				return true;
+			}
+
+			const ticketChannelId = customId.replace('sos_done_', '');
+
+			try {
+				await interaction.message.delete();
+			} catch (e) {}
+
+			await interaction.reply({
+				content: '✅ **Panggilan bantuan SOS diselesaikan & notifikasi berhasil dihapus dari Admin Channel.**',
+				flags: MessageFlags.Ephemeral
+			});
+
+			try {
+				const ticketChannel = await client.channels.fetch(ticketChannelId);
+				if (ticketChannel) {
+					const resolvedEmbed = new EmbedBuilder()
+						.setTitle('✅  BEBEY STORE — BANTUAN SELESAI')
+						.setColor(0x2ECC71)
+						.setDescription(`Admin ${interaction.user} telah menyelesaikan panggilan bantuan Anda. Terima kasih!`)
+						.setTimestamp();
+
+					await ticketChannel.send({ embeds: [resolvedEmbed] });
+				}
+			} catch (e) {}
+
+			return true;
+		}
 	}
 
 	// 2. Modal Submissions (Admin Approve & Reject Modal)
