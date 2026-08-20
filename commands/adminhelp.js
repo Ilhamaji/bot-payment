@@ -14,11 +14,13 @@ module.exports = {
 
 		let adminDescription = 
 			`Berikut adalah daftar lengkap perintah kelola toko (*Admin Slash Commands*) di **Bebey Store**:\n\n` +
-			`⚙️ **PERINTAH KELOLA TOKO & PRODUK:**\n` +
+			`🎛️ **ADMIN CONTROL PANEL GUI (UTAMA):**\n` +
+			`• **\`/adminpanel\`** — Membuka Dashboard GUI Interaktif khusus Admin untuk mengelola Item, Kategori, Panel Toko, Live Leaderboard, Export Excel, & Hak Akses Admin secara visual via Tombol, Dropdown, & Modal Form!\n\n` +
+			`⚙️ **PERINTAH KELOLA TOKO & PRODUK (MANUAL):**\n` +
 			`• **\`/panel\`** — Mengirimkan Pesan Panel Katalog Toko di channel toko (misal #beli-disini).\n` +
 			`• **\`/leaderboard\`** — Mengirimkan Pesan Panel Live Leaderboard di channel terpisah (misal #leaderboard).\n` +
-			`• **\`/additem\`** \`<id> <nama> <harga> <username> [catatan_tiket] [cek_limit] ...\` — Menambah item baru dengan opsi catatan tiket & Cek Limit.\n` +
-			`• **\`/edititem\`** \`<item> [nama] [harga] [username] [catatan_tiket] [cek_limit] ...\` — Mengubah detail item, catatan tiket, & Cek Limit.\n` +
+			`• **\`/additem\`** \`<id> <nama> <harga> ...\` — Menambah item baru dengan opsi catatan tiket & Cek Limit.\n` +
+			`• **\`/edititem\`** \`<item> ...\` — Mengubah detail item, catatan tiket, Cek Limit, & status Tahan Produk.\n` +
 			`• **\`/delitem\`** \`<item>\` — Menghapus item spesifik dari katalog toko.\n` +
 			`• **\`/delcategory\`** \`<kategori>\` — Menghapus seluruh kategori beserta item di dalamnya.\n` +
 			`• **\`/editcategory\`** \`<kategori_lama> <kategori_baru>\` — Mengubah nama kategori produk.\n` +
@@ -33,11 +35,11 @@ module.exports = {
 		}
 
 		adminDescription += 
-			`📌 **TIPS OPERASIONAL & CARA ACC TRANSAKSI:**\n` +
+			`📌 **TIPS OPERASIONAL & CARA ACC/REJECT TRANSAKSI:**\n` +
 			`1️⃣ Verifikasi bukti transfer pembeli di Admin Channel.\n` +
-			`2️⃣ Tekan tombol **"✅ Approve & Beri Item"**.\n` +
-			`3️⃣ **BALAS (REPLY)** pesan transaksi tersebut dengan meng-upload **foto screenshot bukti pengiriman item**.\n` +
-			`4️⃣ Bot akan otomatis mengirimkan foto bukti pengiriman tersebut ke tiket pembeli dan menghapus notifikasi Admin saat tiket ditutup!`;
+			`2️⃣ **APPROVE:** Tekan **"✅ Approve & Beri Item"** -> **BALAS (REPLY)** pesan tersebut dengan meng-upload **foto bukti pengiriman item**.\n` +
+			`3️⃣ **REJECT:** Tekan **"❌ Reject / Tolak"** -> Isi alasan penolakan pada Form Modal (cth: resi blur/nominal kurang). Pembeli dapat meng-upload foto bukti baru!\n` +
+			`4️⃣ **TAHAN ITEM:** Di \`/adminpanel\` -> \`✏️ Edit Item\` -> Centang \`⛔ Tahan Produk (Nonaktifkan Sementara)\` agar item tidak bisa dibeli sementara!`;
 
 		const embed = new EmbedBuilder()
 			.setTitle('⚙️  BEBEY STORE — ADMIN CONTROL PANEL GUIDE')

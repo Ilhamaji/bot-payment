@@ -6,16 +6,19 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 
 ## 🌟 Fitur Utama (Key Features)
 
+- 🎛️ **Admin Control Panel GUI (`/adminpanel`)**: Interactive Dashboard GUI khusus Admin untuk mengelola seluruh aspek toko (Item, Kategori, Panel Toko, Leaderboard, Export Excel, & Admin) secara visual via Tombol, Dropdown Menu, & Modal Form.
+- 📁 **Dropdown Select Menu Kategori & Checkbox Setting**: Pengelolaan kategori produk via dropdown otomatis + opsi centang checkbox (`Perlu Username`, `Cek Limit`, `⛔ Tahan Produk / Non-aktifkan`).
+- ⏸️ **Fitur Tahan Produk (Out of Stock / Maintenance)**: Admin dapat menahan produk agar tidak dapat dibeli untuk sementara *(Nama produk tercoret di katalog & otomatis ditolak jika dipilih)*.
 - 🏪 **Panel Toko Multi-Kategori Interaktif (`/panel`)**: Tampilan katalog toko publik terelompok rapi per kategori dengan balasan privat (*Ephemeral*) tanpa mengotori channel toko.
+- 🚀 **Direct 1-Click Ticket Jump Button**: Pembeli dapat langsung lompat ke channel privat tiketnya hanya dengan 1x klik tombol `🚀 Buka Channel Tiket Kamu`.
+- ❌ **Rejection Reason Modal & Revision Workflow**: Admin dapat menginput alasan penolakan bukti transfer spesifik via form modal, dan pembeli dapat meng-upload foto revisi secara langsung di channel tiket.
 - 🎮 **Verifikasi API Roblox Real-Time**: Memvalidasi Username Roblox pembeli secara langsung ke Database API Resmi Roblox sebelum tiket dibuat.
 - 🎫 **Sistem Tiket Privat Otomatis**: Setiap pembeli mendapatkan text channel privat khusus (`#<kode-item>-<hash>`) di bawah Kategori Discord yang telah ditentukan.
 - 💳 **Verifikasi Pembayaran QRIS (Metode 1)**: Pengiriman gambar QRIS asli toko, verifikasi transfer akurat, dan konfirmasi barang diterima oleh pembeli.
-- 🚨 **Sistem Panggilan Darurat Admin (SOS)**: Tombol panggil Admin cepat untuk pembeli yang membutuhkan bantuan langsung di channel tiket.
+- 📸 **Reply-Based Proof of Delivery**: Admin cukup membalas (*reply*) pesan notifikasi transaksi dengan meng-upload foto bukti pengiriman item untuk meneruskannya ke tiket pembeli.
 - 🏆 **Papan Peringkat Live Top Spenders (`/leaderboard`)**: Leaderboard 10 pembeli terbanyak yang ter-update otomatis secara real-time di channel terpisah (`#leaderboard`).
 - 📊 **Laporan Excel Bulanan Otomatis (`/exportreport`)**: Pengiriman otomatis laporan rekapitulasi penjualan bulanan format Excel (`nama_bulan-tahun.xlsx`) setiap tanggal 1 jam 00:05 WIB ke channel `#laporan`.
-- 🎨 **Sistem Pewarisan Ikon (Emoji) Produk & Kategori**: Item otomatis mewarisi emoji kategorinya jika tidak diberi emoji khusus.
-- 🛡️ **Keamanan Kunci & Proteksi Admin**: Sistem autentikasi bertingkat (Owner & Secondary Admin) dengan proteksi pembajakan akses.
-- ⚡ **Supabase PostgreSQL & Keep-Alive Workflow**: Integrasi database cloud Supabase lengkap dengan GitHub Actions Cron untuk membypass 7-day auto-suspend Supabase.
+- 🗄️ **Dukungan Dual Database (Supabase Cloud & Local SQLite)**: Modul Supabase Cloud untuk produksi utama + folder `biznetgio/` native SQLite untuk deployment Biznet GIO VPS.
 
 ---
 
@@ -25,10 +28,11 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 payment-bot/
 ├── 📁 .github/workflows/   # GitHub Actions Keep-Alive Supabase Workflow
 │   └── keep-alive-supabase.yml
-├── 📁 commands/            # 12 Slash Commands Terstruktur
+├── 📁 commands/            # 13 Slash Commands Terstruktur
 │   ├── addadmin.js
 │   ├── additem.js
 │   ├── adminhelp.js
+│   ├── adminpanel.js
 │   ├── deladmin.js
 │   ├── delcategory.js
 │   ├── delitem.js
