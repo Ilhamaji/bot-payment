@@ -29,6 +29,30 @@ function saveItemsData(items, itemsFilePath) {
 	delete require.cache[require.resolve('../config/items')];
 }
 
+function buildItemCheckboxMenu(item) {
+	const selectMenu = new StringSelectMenuBuilder()
+		.setCustomId(`ap_checkbox_opts_${item.id}`)
+		.setPlaceholder('☑️ Centang Opsi Setting (Bisa pilih lebih dari 1)')
+		.setMinValues(0)
+		.setMaxValues(2)
+		.addOptions(
+			new StringSelectMenuOptionBuilder()
+				.setLabel('Perlu Username Roblox')
+				.setValue('req_username')
+				.setDescription('Pembeli wajib mengisi Username Roblox saat membuat tiket')
+				.setEmoji('👤')
+				.setDefault(item.requireUsername !== false),
+			new StringSelectMenuOptionBuilder()
+				.setLabel('Perlu Cek Limit Roblox')
+				.setValue('req_limit')
+				.setDescription('Pembeli akan melewati panduan Cek Limit Roblox')
+				.setEmoji('🔍')
+				.setDefault(item.requireLimitCheck !== false)
+		);
+
+	return new ActionRowBuilder().addComponents(selectMenu);
+}
+
 async function handleAdminPanelInteraction(interaction, client) {
 	if (!isAdmin(interaction.user.id)) {
 		return interaction.reply({ 
@@ -104,7 +128,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const idInput = new TextInputBuilder()
 				.setCustomId('add_id')
-				.setLabel('ID UNIK ITEM (tanpa spasi, cth: robux_1000):')
+				.setLabel('ID UNIK ITEM (cth: robux_1000):')
 				.setStyle(TextInputStyle.Short)
 				.setRequired(true);
 
@@ -122,17 +146,16 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const categoryInput = new TextInputBuilder()
 				.setCustomId('add_category')
-				.setLabel('KATEGORI (cth: Robux, Gamepass, Items):')
+				.setLabel('KATEGORI (cth: Robux, Gamepass):')
 				.setStyle(TextInputStyle.Short)
 				.setValue('Robux')
 				.setRequired(true);
 
-			const optsInput = new TextInputBuilder()
-				.setCustomId('add_opts')
-				.setLabel('SETTING & CATATAN TIKET (Opsional):')
+			const notesInput = new TextInputBuilder()
+				.setCustomId('add_notes')
+				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
 				.setStyle(TextInputStyle.Paragraph)
-				.setPlaceholder('username:true | limit:true | catatan:Catatan penting di tiket...')
-				.setValue('username:true | limit:true')
+				.setPlaceholder('Tulis catatan khusus untuk produk ini di tiket...')
 				.setRequired(false);
 
 			modal.addComponents(
@@ -140,7 +163,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 				new ActionRowBuilder().addComponents(nameInput),
 				new ActionRowBuilder().addComponents(priceInput),
 				new ActionRowBuilder().addComponents(categoryInput),
-				new ActionRowBuilder().addComponents(optsInput)
+				new ActionRowBuilder().addComponents(notesInput)
 			);
 
 			return interaction.showModal(modal);
@@ -229,7 +252,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const row = new ActionRowBuilder().addComponents(selectMenu);
 			return interaction.reply({ 
-				content: '✏️ **Pilih kategori yang ingin Anda ubah namaya:**', 
+				content: '✏️ **Pilih kategori yang ingin Anda ubah namanya:**', 
 				components: [row], 
 				flags: MessageFlags.Ephemeral 
 			});
@@ -334,7 +357,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 		if (customId === 'ap_btn_addadmin_modal') {
 			const modal = new ModalBuilder()
 				.setCustomId('ap_modal_addadmin')
-				.setTitle('➕ ANGKAT ADMIN SEKUENDER BARU');
+				.setTitle('➕ ANGKAT ADMIN SEKUNDER BARU');
 
 			const userInput = new TextInputBuilder()
 				.setCustomId('admin_user_input')
@@ -395,9 +418,44 @@ async function handleAdminPanelInteraction(interaction, client) {
 	}
 
 	// ==========================================
-	// 2. SELECT MENU INTERACTIONS (ap_select_...)
+	// 2. SELECT MENU INTERACTIONS (ap_select_... & ap_checkbox_...)
 	// ==========================================
 	if (interaction.isStringSelectMenu()) {
+		// Checkbox Select Menu Options Handler
+		if (customId.startsWith('ap_checkbox_opts_')) {
+			const itemId = customId.replace('ap_checkbox_opts_', '');
+			const selectedValues = interaction.values;
+
+			const { items, itemsFilePath } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			item.requireUsername = selectedValues.includes('req_username');
+			item.requireLimitCheck = selectedValues.includes('req_limit');
+
+			saveItemsData(items, itemsFilePath);
+			updateGlobalPanel(client);
+
+			const reqUserLabel = item.requireUsername ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
+			const reqLimitLabel = item.requireLimitCheck ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
+
+			const updatedEmbed = new EmbedBuilder()
+				.setTitle('⚙️  SETTING CHECKBOX ITEM DIPERBARUI')
+				.setColor(0x2ECC71)
+				.setDescription(`Berhasil memperbarui opsi centang (checkbox) untuk item **${item.name}**!`)
+				.addFields(
+					{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
+					{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true }
+				)
+				.setTimestamp();
+
+			const newCheckboxRow = buildItemCheckboxMenu(item);
+			return interaction.update({ embeds: [updatedEmbed], components: [newCheckboxRow] });
+		}
+
 		// Edit Item Modal Launcher
 		if (customId === 'ap_select_edititem') {
 			const selectedItemId = interaction.values[0];
@@ -433,16 +491,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 				.setValue(item.category || 'General')
 				.setRequired(true);
 
-			const reqUser = item.requireUsername !== false ? 'true' : 'false';
-			const reqLimit = item.requireLimitCheck !== false ? 'true' : 'false';
-
-			const optsInput = new TextInputBuilder()
-				.setCustomId('edit_opts')
-				.setLabel('SETTING (username:true | limit:true):')
-				.setStyle(TextInputStyle.Short)
-				.setValue(`username:${reqUser} | limit:${reqLimit}`)
-				.setRequired(false);
-
 			const notesInput = new TextInputBuilder()
 				.setCustomId('edit_notes')
 				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
@@ -454,7 +502,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 				new ActionRowBuilder().addComponents(nameInput),
 				new ActionRowBuilder().addComponents(priceInput),
 				new ActionRowBuilder().addComponents(categoryInput),
-				new ActionRowBuilder().addComponents(optsInput),
 				new ActionRowBuilder().addComponents(notesInput)
 			);
 
@@ -545,23 +592,14 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const name = interaction.fields.getTextInputValue('add_name').trim();
 			const price = parseInt(interaction.fields.getTextInputValue('add_price').trim(), 10) || 0;
 			const category = interaction.fields.getTextInputValue('add_category').trim() || 'Robux';
-			const optsStr = interaction.fields.getTextInputValue('add_opts') || '';
+			const notes = interaction.fields.getTextInputValue('add_notes').trim();
 
 			const { items, itemsFilePath } = getItemsData();
 			if (items.some(i => i.id === id)) {
 				return interaction.reply({ content: `❌ ID Item \`${id}\` sudah ada. Gunakan ID lain.`, flags: MessageFlags.Ephemeral });
 			}
 
-			let reqUser = true;
-			let reqLimit = category.toLowerCase().includes('robux');
-			let notes = '';
-
-			if (optsStr.includes('username:false')) reqUser = false;
-			if (optsStr.includes('limit:false')) reqLimit = false;
-			if (optsStr.includes('catatan:')) {
-				notes = optsStr.split('catatan:')[1].trim();
-			}
-
+			const isRobuxCategory = category.toLowerCase().includes('robux');
 			const newItem = {
 				id: id,
 				name: name,
@@ -569,8 +607,8 @@ async function handleAdminPanelInteraction(interaction, client) {
 				category: category,
 				description: 'Produk Bebey Store',
 				emoji: '',
-				requireUsername: reqUser,
-				requireLimitCheck: reqLimit
+				requireUsername: true,
+				requireLimitCheck: isRobuxCategory
 			};
 			if (notes) newItem.notes = notes;
 
@@ -579,9 +617,12 @@ async function handleAdminPanelInteraction(interaction, client) {
 			updateGlobalPanel(client);
 
 			const embed = new EmbedBuilder()
-				.setTitle('➕  ITEM BARU BERHASIL DITAMBAHKAN')
+				.setTitle('➕  ITEM DITAMBAHKAN — SILAKAN ATUR CHECKBOX OPSI')
 				.setColor(0x2ECC71)
-				.setDescription(`Berhasil menambahkan **${name}** ke katalog toko!`)
+				.setDescription(
+					`Berhasil menambahkan **${name}** ke katalog toko!\n\n` +
+					`👇 **Gunakan Menu Centang (Checkbox) di bawah untuk memilih setting item:**`
+				)
 				.addFields(
 					{ name: 'ID Item', value: `\`${id}\``, inline: true },
 					{ name: 'Harga', value: `**Rp ${price.toLocaleString('id-ID')}**`, inline: true },
@@ -589,7 +630,8 @@ async function handleAdminPanelInteraction(interaction, client) {
 				)
 				.setTimestamp();
 
-			return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+			const checkboxRow = buildItemCheckboxMenu(newItem);
+			return interaction.reply({ embeds: [embed], components: [checkboxRow], flags: MessageFlags.Ephemeral });
 		}
 
 		// Submit Edit Item
@@ -598,7 +640,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const name = interaction.fields.getTextInputValue('edit_name').trim();
 			const price = parseInt(interaction.fields.getTextInputValue('edit_price').trim(), 10) || 0;
 			const category = interaction.fields.getTextInputValue('edit_category').trim() || 'General';
-			const optsStr = interaction.fields.getTextInputValue('edit_opts') || '';
 			const notes = interaction.fields.getTextInputValue('edit_notes').trim();
 
 			const { items, itemsFilePath } = getItemsData();
@@ -612,12 +653,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 			item.price = price;
 			item.category = category;
 
-			if (optsStr.includes('username:false')) item.requireUsername = false;
-			if (optsStr.includes('username:true')) item.requireUsername = true;
-
-			if (optsStr.includes('limit:false')) item.requireLimitCheck = false;
-			if (optsStr.includes('limit:true')) item.requireLimitCheck = true;
-
 			if (notes) {
 				item.notes = notes;
 			} else {
@@ -628,12 +663,16 @@ async function handleAdminPanelInteraction(interaction, client) {
 			updateGlobalPanel(client);
 
 			const embed = new EmbedBuilder()
-				.setTitle('✏️  DETAIL ITEM BERHASIL DIPERBARUI')
+				.setTitle('✏️  DETAIL ITEM DISIMPAN — SILAKAN ATUR CHECKBOX OPSI')
 				.setColor(0x2ECC71)
-				.setDescription(`Berhasil mengubah detail item **${name}** (\`${itemId}\`)!`)
+				.setDescription(
+					`Berhasil menyimpan perubahan nama & harga item **${name}**!\n\n` +
+					`👇 **Gunakan Menu Centang (Checkbox) di bawah untuk mengubah setting item:**`
+				)
 				.setTimestamp();
 
-			return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+			const checkboxRow = buildItemCheckboxMenu(item);
+			return interaction.reply({ embeds: [embed], components: [checkboxRow], flags: MessageFlags.Ephemeral });
 		}
 
 		// Submit Edit Kategori
@@ -714,12 +753,13 @@ async function handleAdminPanelInteraction(interaction, client) {
 					return interaction.reply({ content: `⚠️ ${result.message}`, flags: MessageFlags.Ephemeral });
 				}
 			} catch (err) {
-				return interaction.reply({ content: '❌ Gagal menemukan User Discord dengan ID/mention tersebut.', flags: MessageFlags.Ephemeral });
+				return interaction.reply({ content: '❌ Gagal menemukan User Discord dengan ID/mention meggunakan ID/mention tersebut.', flags: MessageFlags.Ephemeral });
 			}
 		}
 	}
 }
 
 module.exports = {
-	handleAdminPanelInteraction
+	handleAdminPanelInteraction,
+	buildItemCheckboxMenu
 };
