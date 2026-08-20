@@ -290,41 +290,62 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		});
 
 		if (robloxUsername && robloxUsername !== 'Tidak Perlu') {
+			const isFound = robloxUserId !== null && robloxData?.found !== false;
 			const { getRobloxAvatarHeadshot } = require('./roblox');
-			const avatarUrl = await getRobloxAvatarHeadshot(robloxUserId);
-
-			const confirmEmbed = new EmbedBuilder()
-				.setTitle('👤  AKUN ROBLOX KAMU')
-				.setColor(0xF1C40F)
-				.setDescription(
-					`Coba cek, apakah ini akun Roblox kamu?\n\n` +
-					`📛 **Username:** \`${robloxUsername}\`\n` +
-					`✨ **Display Name:** **${robloxDisplayName}**\n` +
-					`🔢 **User ID:** \`${robloxUserId || 'N/A'}\`\n\n` +
-					`Kalau benar, klik tombol di bawah ya! 👇`
-				)
-				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
-
-			if (avatarUrl) {
-				confirmEmbed.setThumbnail(avatarUrl);
-			}
-
-			const confirmYesBtn = new ButtonBuilder()
-				.setCustomId(`confirm_roblox_${orderId}`)
-				.setLabel('✅ Iya, Ini Akun Saya')
-				.setStyle(ButtonStyle.Success);
+			const avatarUrl = isFound ? await getRobloxAvatarHeadshot(robloxUserId) : null;
 
 			const changeNoBtn = new ButtonBuilder()
 				.setCustomId(`change_roblox_${orderId}`)
 				.setLabel('✏️ Ganti Username')
 				.setStyle(ButtonStyle.Danger);
 
-			const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
+			if (isFound) {
+				const confirmEmbed = new EmbedBuilder()
+					.setTitle('👤  AKUN ROBLOX KAMU')
+					.setColor(0xF1C40F)
+					.setDescription(
+						`Coba cek, apakah ini akun Roblox kamu?\n\n` +
+						`📛 **Username:** \`${robloxUsername}\`\n` +
+						`✨ **Display Name:** **${robloxDisplayName}**\n` +
+						`🔢 **User ID:** \`${robloxUserId || 'N/A'}\`\n\n` +
+						`Kalau benar, klik tombol di bawah ya! 👇`
+					)
+					.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
-			await ticketChannel.send({
-				embeds: [confirmEmbed],
-				components: [confirmRow]
-			});
+				if (avatarUrl) {
+					confirmEmbed.setThumbnail(avatarUrl);
+				}
+
+				const confirmYesBtn = new ButtonBuilder()
+					.setCustomId(`confirm_roblox_${orderId}`)
+					.setLabel('✅ Iya, Ini Akun Saya')
+					.setStyle(ButtonStyle.Success);
+
+				const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
+
+				await ticketChannel.send({
+					embeds: [confirmEmbed],
+					components: [confirmRow]
+				});
+			} else {
+				const notFoundEmbed = new EmbedBuilder()
+					.setTitle('❌  AKUN ROBLOX TIDAK DITEMUKAN')
+					.setColor(0xED4245)
+					.setDescription(
+						`⚠️ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n\n` +
+						`> Username Roblox \`${robloxUsername}\` tidak terdaftar di database resmi Roblox.\n` +
+						`> Silakan periksa kembali ejaan Username kamu (tanpa menggunakan simbol @).\n` +
+						`> Tekan tombol **✏️ Ganti Username** di bawah untuk memasukkan Username Roblox yang benar!`
+					)
+					.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+				const notFoundRow = new ActionRowBuilder().addComponents(changeNoBtn);
+
+				await ticketChannel.send({
+					embeds: [notFoundEmbed],
+					components: [notFoundRow]
+				});
+			}
 		} else {
 			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
 			const qrisMsg = await ticketChannel.send({

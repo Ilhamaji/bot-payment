@@ -3,10 +3,9 @@
  */
 async function validateRobloxUsername(username) {
     if (!username || username.trim() === '' || username === 'Tidak Perlu') {
-        return { valid: true, username: 'Tidak Perlu', id: null, displayName: 'Tidak Perlu' };
+        return { valid: true, found: true, username: 'Tidak Perlu', id: null, displayName: 'Tidak Perlu' };
     }
 
-    // Bersihkan username dari karakter @ dan spasi
     const cleanUsername = username.trim().replace(/^@/, '').trim();
 
     try {
@@ -28,6 +27,7 @@ async function validateRobloxUsername(username) {
                 const userData = json.data[0];
                 return {
                     valid: true,
+                    found: true,
                     username: userData.name,
                     displayName: userData.displayName || userData.name,
                     id: userData.id
@@ -35,18 +35,16 @@ async function validateRobloxUsername(username) {
             }
         }
     } catch (err) {
-        console.warn('⚠️ Gagal menghubungi Roblox API, mengaktifkan auto-bypass:', err);
+        console.warn('⚠️ Gagal menghubungi Roblox API:', err);
     }
 
-    // SMART FALLBACK: Jika username tidak terindeks atau Roblox API rate limited,
-    // TETAP ANGGAP VALID agar Pembeli tidak terhambat membuat tiket!
-    // Pembeli bisa mengonfirmasi/mengedit username di channel tiket privat.
+    // Return found: false jika username tidak ditemukan di Roblox
     return {
         valid: true,
+        found: false,
         username: cleanUsername,
         displayName: cleanUsername,
-        id: null,
-        fallback: true
+        id: null
     };
 }
 

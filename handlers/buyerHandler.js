@@ -128,30 +128,60 @@ async function handleBuyerInteraction(interaction, client) {
 
 			await supabase.from('purchases').update({ roblox_username: robloxCheck.username }).eq('order_id', orderId);
 
-			const avatarUrl = await getRobloxAvatarHeadshot(robloxCheck.id);
+			const isFound = robloxCheck.id !== null && robloxCheck.found !== false;
+			const avatarUrl = isFound ? await getRobloxAvatarHeadshot(robloxCheck.id) : null;
 
 			try {
 				const fetchedMsgs = await interaction.channel.messages.fetch({ limit: 20 });
-				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && m.embeds[0].title.includes('AKUN ROBLOX'));
+				const confirmMsg = fetchedMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title && (m.embeds[0].title.includes('AKUN ROBLOX') || m.embeds[0].title.includes('TIDAK DITEMUKAN')));
+
+				const changeNoBtn = new ButtonBuilder()
+					.setCustomId(`change_roblox_${orderId}`)
+					.setLabel('✏️ Ganti Username')
+					.setStyle(ButtonStyle.Danger);
 
 				if (confirmMsg) {
-					const updatedEmbed = new EmbedBuilder()
-						.setTitle('👤  AKUN ROBLOX KAMU')
-						.setColor(0xF1C40F)
-						.setDescription(
-							`Coba cek, apakah ini akun Roblox kamu?\n\n` +
-							`📛 **Username:** \`${robloxCheck.username}\`\n` +
-							`✨ **Display Name:** **${robloxCheck.displayName || robloxCheck.username}**\n` +
-							`🔢 **User ID:** \`${robloxCheck.id || 'N/A'}\`\n\n` +
-							`Kalau benar, klik tombol di bawah ya! 👇`
-						)
-						.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+					if (isFound) {
+						const updatedEmbed = new EmbedBuilder()
+							.setTitle('👤  AKUN ROBLOX KAMU')
+							.setColor(0xF1C40F)
+							.setDescription(
+								`Coba cek, apakah ini akun Roblox kamu?\n\n` +
+								`📛 **Username:** \`${robloxCheck.username}\`\n` +
+								`✨ **Display Name:** **${robloxCheck.displayName || robloxCheck.username}**\n` +
+								`🔢 **User ID:** \`${robloxCheck.id || 'N/A'}\`\n\n` +
+								`Kalau benar, klik tombol di bawah ya! 👇`
+							)
+							.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
-					if (avatarUrl) {
-						updatedEmbed.setThumbnail(avatarUrl);
+						if (avatarUrl) {
+							updatedEmbed.setThumbnail(avatarUrl);
+						}
+
+						const confirmYesBtn = new ButtonBuilder()
+							.setCustomId(`confirm_roblox_${orderId}`)
+							.setLabel('✅ Iya, Ini Akun Saya')
+							.setStyle(ButtonStyle.Success);
+
+						const confirmRow = new ActionRowBuilder().addComponents(confirmYesBtn, changeNoBtn);
+
+						await confirmMsg.edit({ embeds: [updatedEmbed], components: [confirmRow] });
+					} else {
+						const notFoundEmbed = new EmbedBuilder()
+							.setTitle('❌  AKUN ROBLOX TIDAK DITEMUKAN')
+							.setColor(0xED4245)
+							.setDescription(
+								`⚠️ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n\n` +
+								`> Username Roblox \`${robloxCheck.username}\` tidak terdaftar di database resmi Roblox.\n` +
+								`> Silakan periksa kembali ejaan Username kamu (tanpa menggunakan simbol @).\n` +
+								`> Tekan tombol **✏️ Ganti Username** di bawah untuk memasukkan Username Roblox yang benar!`
+							)
+							.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+
+						const notFoundRow = new ActionRowBuilder().addComponents(changeNoBtn);
+
+						await confirmMsg.edit({ embeds: [notFoundEmbed], components: [notFoundRow] });
 					}
-
-					await confirmMsg.edit({ embeds: [updatedEmbed] });
 				}
 			} catch (e) {
 				console.warn('⚠️ Error updating Roblox confirmation embed:', e);
