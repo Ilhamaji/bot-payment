@@ -144,18 +144,17 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 	}
 }
 
-function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode = 0) {
+function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
 	const itemEmoji = selectedItem.emoji || '📦';
 	const formattedPrice = `Rp ${totalAmount.toLocaleString('id-ID')}`;
-	const uniqueNotice = uniqueCode > 0 ? `\n⚠️ **PENTING:** Wajib transfer **pas ${formattedPrice}** (termasuk kode unik 3 digit \`${uniqueCode}\`) agar pesanan kamu cepat terverifikasi!` : '';
 
 	const paymentDescription = 
 		`📦 **Produk:** ${itemEmoji} **${selectedItem.name}**\n` +
-		`💰 **Total Bayar Tepat:** **${formattedPrice}**\n` +
+		`💰 **Total Bayar:** **${formattedPrice}**\n` +
 		`🆔 **Order ID:** \`${orderId}\`\n\n` +
 		`📌 **CARA BAYAR:**\n` +
 		`1️⃣ Scan QRIS di bawah pakai E-Wallet / M-Banking kamu.\n` +
-		`2️⃣ Bayar **TEPAT ${formattedPrice}**.${uniqueNotice}\n` +
+		`2️⃣ Bayar **tepat ${formattedPrice}**.\n` +
 		`3️⃣ Screenshot resi bukti transfernya.\n\n` +
 		`‼️ **SYARAT FOTO BUKTI:**\n` +
 		`• Jam HP & persentase baterai wajib keliatan\n` +
@@ -192,7 +191,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 	const orderId = `${itemCode}-${randomHash}`;
 	const channelName = orderId.toLowerCase();
 
-	// Generate Kode Unik 3 Digit Terakhir (1 - 999)
+	// Generate Kode Unik 3 Digit Terakhir (1 - 999) di Background
 	const uniqueCode = Math.floor(Math.random() * 999) + 1;
 	const basePrice = Number(selectedItem.price || 0);
 	const totalAmount = basePrice + uniqueCode;
@@ -264,9 +263,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 			`📦 **Produk:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
 			userLine +
 			`🆔 **Order ID:** \`${orderId}\`\n` +
-			`💵 **Harga Produk:** \`Rp ${basePrice.toLocaleString('id-ID')}\`\n` +
-			`🔢 **Kode Unik:** \`Rp ${uniqueCode.toLocaleString('id-ID')}\` *(3 Digit Terakhir)*\n` +
-			`💰 **Total Transfer Wajib:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
+			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
 
 		const ticketEmbed = new EmbedBuilder()
 			.setTitle(`🎫  BEBEY STORE — TIKET PESANAN`)
