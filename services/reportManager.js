@@ -8,12 +8,32 @@ const MONTH_NAMES = [
 ];
 
 /**
+ * Mengambil SELURUH data transaksi dari Supabase (All-Time)
+ */
+async function fetchAllTransactions() {
+    try {
+        const { data, error } = await supabase
+            .from('purchases')
+            .select('*')
+            .eq('status', 'fulfilled')
+            .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching all purchases from Supabase:', error);
+            return [];
+        }
+        return data || [];
+    } catch (err) {
+        console.error('Error executing Supabase all purchases query:', err);
+        return [];
+    }
+}
+
+/**
  * Mengambil data transaksi dari Supabase untuk bulan dan tahun spesifik
  */
 async function fetchMonthlyTransactions(year, month) {
-    // month is 1-indexed (1 = Jan, 12 = Dec)
     const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)).toISOString();
-    // End date is start of next month
     const endDate = new Date(Date.UTC(year, month, 1, 0, 0, 0)).toISOString();
 
     try {
@@ -39,14 +59,16 @@ async function fetchMonthlyTransactions(year, month) {
 /**
  * Membuat File Buffer Excel (.xlsx) yang Rapi & Profesional
  */
-async function generateExcelBuffer(year, month, transactions) {
-    const monthName = MONTH_NAMES[month - 1] || 'BULAN';
+async function generateExcelBuffer(year, month, transactions, customTitle = null) {
+    const monthName = month ? (MONTH_NAMES[month - 1] || 'BULAN') : 'SEMUA DATA';
+    const periodLabel = customTitle ? customTitle : (month && year ? `${monthName} ${year}` : 'SEMUA DATA (ALL-TIME)');
+    
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Bebey Store Bot';
     workbook.lastModifiedBy = 'Bebey Store Bot';
     workbook.created = new Date();
 
-    const sheet = workbook.addWorksheet(`Laporan ${monthName} ${year}`, {
+    const sheet = workbook.addWorksheet(`Laporan Penjualan`, {
         pageSetup: { paperSize: 9, orientation: 'landscape' }
     });
 
@@ -61,7 +83,7 @@ async function generateExcelBuffer(year, month, transactions) {
 
     sheet.mergeCells('A2:H2');
     const subTitleCell = sheet.getCell('A2');
-    subTitleCell.value = `PERIODE: ${monthName} ${year} | STATUS: FULFILLED (BERHASIL)`;
+    subTitleCell.value = `PERIODE: ${periodLabel} | STATUS: FULFILLED (BERHASIL)`;
     subTitleCell.font = { name: 'Arial', size: 11, italic: true, color: { argb: 'D9D9D9' } };
     subTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     subTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2F5597' } };
@@ -104,16 +126,15 @@ async function generateExcelBuffer(year, month, transactions) {
         const price = Number(tx.price || 0);
         totalRevenue += price;
 
-        row.getCell(1).value = idx + 1; // NO
-        row.getCell(2).value = tx.order_id || '-'; // ORDER ID
-        row.getCell(3).value = createdDate; // TANGGAL & WAKTU
-        row.getCell(4).value = tx.roblox_username || '-'; // ROBLOX USERNAME
-        row.getCell(5).value = tx.discord_username || '-'; // DISCORD TAG
-        row.getCell(6).value = tx.item_name || '-'; // NAMA PRODUK
-        row.getCell(7).value = price; // NOMINAL
-        row.getCell(8).value = 'SUCCESS'; // STATUS
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = tx.order_id || '-';
+        row.getCell(3).value = createdDate;
+        row.getCell(4).value = tx.roblox_username || '-';
+        row.getCell(5).value = tx.discord_username || '-';
+        row.getCell(6).value = tx.item_name || '-';
+        row.getCell(7).value = price;
+        row.getCell(8).value = 'SUCCESS';
 
-        // Alignment & Formatting
         row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
         row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
         row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -124,7 +145,6 @@ async function generateExcelBuffer(year, month, transactions) {
         row.getCell(7).numFmt = '"Rp "#,##0';
         row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Zebra Striping Colors
         const bgColor = (idx % 2 === 0) ? 'F2F2F2' : 'FFFFFF';
         for (let col = 1; col <= 8; col++) {
             const cell = row.getCell(col);
@@ -141,7 +161,6 @@ async function generateExcelBuffer(year, month, transactions) {
         currentRowIdx++;
     });
 
-    // Blank line before totals
     sheet.getRow(currentRowIdx).height = 10;
     currentRowIdx++;
 
@@ -163,7 +182,7 @@ async function generateExcelBuffer(year, month, transactions) {
 
     sheet.mergeCells(`A${currentRowIdx}:F${currentRowIdx}`);
     const labelTotalOmset = sheet.getCell(`A${currentRowIdx}`);
-    labelTotalOmset.value = `TOTAL OMSET PENJUALAN (${monthName} ${year}):`;
+    labelTotalOmset.value = `TOTAL OMSET KESELURUHAN (${periodLabel}):`;
     labelTotalOmset.font = { name: 'Arial', size: 11, bold: true, color: { argb: '27AE60' } };
     labelTotalOmset.alignment = { horizontal: 'right', vertical: 'middle' };
 
@@ -176,31 +195,67 @@ async function generateExcelBuffer(year, month, transactions) {
     sheet.getRow(currentRowIdx).height = 25;
 
     // Set Column Widths
-    sheet.getColumn(1).width = 8;   // NO
-    sheet.getColumn(2).width = 20;  // ORDER ID
-    sheet.getColumn(3).width = 24;  // TANGGAL & WAKTU
-    sheet.getColumn(4).width = 22;  // USERNAME ROBLOX
-    sheet.getColumn(5).width = 22;  // DISCORD TAG
-    sheet.getColumn(6).width = 30;  // NAMA PRODUK
-    sheet.getColumn(7).width = 20;  // HARGA
-    sheet.getColumn(8).width = 14;  // STATUS
+    sheet.getColumn(1).width = 8;
+    sheet.getColumn(2).width = 20;
+    sheet.getColumn(3).width = 24;
+    sheet.getColumn(4).width = 22;
+    sheet.getColumn(5).width = 22;
+    sheet.getColumn(6).width = 30;
+    sheet.getColumn(7).width = 20;
+    sheet.getColumn(8).width = 14;
 
     const buffer = await workbook.xlsx.writeBuffer();
     return {
         buffer: Buffer.from(buffer),
         totalTransactions: transactions.length,
+        totalRevenue: totalRevenue
+    };
+}
+
+/**
+ * Mengirim Laporan SELURUH Penjualan (All-Time) ke Admin
+ */
+async function sendAllTimeReport(clientInstance, targetChannelId = null) {
+    const transactions = await fetchAllTransactions();
+    const totalTransactions = transactions ? transactions.length : 0;
+    const totalRevenue = transactions ? transactions.reduce((sum, t) => sum + (Number(t.price) || 0), 0) : 0;
+
+    const excelRes = await generateExcelBuffer(null, null, transactions || [], 'SEMUA TRANSAKSI (ALL-TIME)');
+    const buffer = (excelRes && excelRes.buffer) ? excelRes.buffer : excelRes;
+    const fileName = `Laporan_Penjualan_Semua_Data_BebeyStore.xlsx`;
+    const attachment = new AttachmentBuilder(buffer, { name: fileName });
+
+    const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
+    const ownerTag = ownerId ? `<@${ownerId}>` : 'Owner';
+
+    const embed = new EmbedBuilder()
+        .setTitle(`📊  BEBEY STORE — LAPORAN REKAPITULASI KESELURUHAN`)
+        .setColor(0x2ECC71)
+        .setDescription(
+            `Halo ${ownerTag}! Laporan rekapitulasi **seluruh data transaksi penjualan** di **Bebey Store** telah selesai dibuat.\n\n` +
+            `📅 **Periode Laporan:** \`SEMUA DATA / ALL-TIME\`\n` +
+            `📦 **Total Transaksi Sukses:** **${totalTransactions} Transaksi**\n` +
+            `💰 **Total Omset Penjualan:** **Rp ${totalRevenue.toLocaleString('id-ID')}**\n\n` +
+            `📌 **File Lampiran:** File Excel \`${fileName}\` dilampirkan di bawah ini.`
+        )
+        .setTimestamp()
+        .setFooter({ text: '📊 Bebey Store Official • All-Time Sales Report' });
+
+    return {
+        embed,
+        attachment,
+        totalTransactions,
         totalRevenue
     };
 }
 
 /**
- * Mengirim Laporan Penjualan Excel ke Channel / DM Owner
+ * Mengirim Laporan Penjualan Excel ke Channel
  */
 async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedYear = null, forcedMonth = null) {
     const now = new Date();
-    // Default: Laporan Bulan Lalu
     let year = forcedYear || now.getFullYear();
-    let month = forcedMonth || now.getMonth(); // 0 = Jan, so previous month is current month number in 1-indexed
+    let month = forcedMonth || now.getMonth();
 
     if (!forcedMonth && month === 0) {
         month = 12;
@@ -237,7 +292,6 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
         .setTimestamp()
         .setFooter({ text: '📊 Bebey Store Official • Automated Monthly Sales Report' });
 
-    // Cari Channel Tujuan (REPORT_CHANNEL_ID -> ADMIN_CHANNEL_ID)
     const reportChannelId = targetChannelId || (process.env.REPORT_CHANNEL_ID ? process.env.REPORT_CHANNEL_ID.trim() : null) || (process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null);
 
     let sent = false;
@@ -266,22 +320,15 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
     return { totalTransactions, totalRevenue, monthName, year };
 }
 
-/**
- * Cron Check Otomatis Setiap Tanggal 1 Jam 00:05 WIB
- */
-let lastSentReportPeriod = '';
-
 function setupMonthlyReportScheduler(clientInstance) {
-    // Cek setiap 1 jam
     setInterval(async () => {
         const now = new Date();
         const jakartaDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
         const dateNum = jakartaDate.getDate();
         const hourNum = jakartaDate.getHours();
 
-        // Cek jika Tanggal 1 dan Jam 00:XX WIB
         if (dateNum === 1 && hourNum === 0) {
-            let prevMonth = jakartaDate.getMonth(); // Previous month (0-11) is current getMonth()
+            let prevMonth = jakartaDate.getMonth();
             let prevYear = jakartaDate.getFullYear();
             if (prevMonth === 0) {
                 prevMonth = 12;
@@ -294,12 +341,16 @@ function setupMonthlyReportScheduler(clientInstance) {
                 await sendMonthlyReport(clientInstance, null, prevYear, prevMonth);
             }
         }
-    }, 60 * 60 * 1000); // 1 Jam
+    }, 60 * 60 * 1000);
 }
 
+let lastSentReportPeriod = '';
+
 module.exports = {
+    fetchAllTransactions,
     fetchMonthlyTransactions,
     generateExcelBuffer,
+    sendAllTimeReport,
     sendMonthlyReport,
     setupMonthlyReportScheduler
 };

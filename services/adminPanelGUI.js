@@ -402,36 +402,22 @@ async function handleAdminPanelInteraction(interaction, client) {
 			});
 		}
 
-		// Modal Export Laporan
+		// Export Laporan Excel Seluruh Data (All-Time)
 		if (customId === 'ap_btn_exportreport') {
-			const modal = new ModalBuilder()
-				.setCustomId('ap_modal_exportreport')
-				.setTitle('📊 EXPORT LAPORAN PENJUALAN EXCEL');
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-			const now = new Date();
-			const currentMonth = String(now.getMonth() + 1);
-			const currentYear = String(now.getFullYear());
+			const { sendAllTimeReport } = require('./reportManager');
+			const result = await sendAllTimeReport(client, interaction.channelId);
 
-			const monthInput = new TextInputBuilder()
-				.setCustomId('report_month')
-				.setLabel('BULAN (1 - 12):')
-				.setStyle(TextInputStyle.Short)
-				.setValue(currentMonth)
-				.setRequired(true);
+			if (!result || result.totalTransactions === 0) {
+				return interaction.editReply({ content: '⚠️ Belum ada data transaksi terverifikasi (fulfilled) di database toko.' });
+			}
 
-			const yearInput = new TextInputBuilder()
-				.setCustomId('report_year')
-				.setLabel('TAHUN (YYYY):')
-				.setStyle(TextInputStyle.Short)
-				.setValue(currentYear)
-				.setRequired(true);
-
-			modal.addComponents(
-				new ActionRowBuilder().addComponents(monthInput),
-				new ActionRowBuilder().addComponents(yearInput)
-			);
-
-			return interaction.showModal(modal);
+			return interaction.editReply({
+				content: `✅ **Laporan Excel Seluruh Data Penjualan (All-Time) Berhasil Dibuat!**`,
+				embeds: [result.embed],
+				files: [result.attachment]
+			});
 		}
 
 		// Kelola Admin GUI (Khusus Owner)
