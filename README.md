@@ -1,24 +1,28 @@
 # 🏪 Bebey Store — Professional Discord Payment & Ticketing Bot
 
-Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sistem Tiket Privat, Verifikasi API Roblox Real-Time, Integrasi Database Supabase, Papan Peringkat Live, dan Laporan Rekapitulasi Penjualan Bulanan Otomatis dalam Format Excel (`.xlsx`).
+Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sistem Tiket Privat, Verifikasi API Roblox Real-Time, Sistem Kode Unik 3 Digit, Ekspor Laporan Penjualan Excel (`.xlsx`) Keseluruhan (*All-Time*) & Bulanan, serta Integrasi Dual Database (Supabase Cloud & Native SQLite).
 
 ---
 
 ## 🌟 Fitur Utama (Key Features)
 
-- 🎛️ **Admin Control Panel GUI (`/adminpanel`)**: Interactive Dashboard GUI khusus Admin untuk mengelola seluruh aspek toko (Item, Kategori, Panel Toko, Leaderboard, Export Excel, & Admin) secara visual via Tombol, Dropdown Menu, & Modal Form.
+- 🎛️ **Admin Control Panel GUI (`/adminpanel`)**: Interactive Dashboard GUI khusus Admin untuk mengelola seluruh aspek toko (Item, Kategori, Panel Toko, Leaderboard, Export Excel All-Time, & Admin) secara visual via Tombol, Dropdown Menu, & Modal Form.
 - 📁 **Dropdown Select Menu Kategori & Checkbox Setting**: Pengelolaan kategori produk via dropdown otomatis + opsi centang checkbox (`Perlu Username`, `Cek Limit`, `⛔ Tahan Produk / Non-aktifkan`).
 - ⏸️ **Fitur Tahan Produk (Out of Stock / Maintenance)**: Admin dapat menahan produk agar tidak dapat dibeli untuk sementara *(Nama produk tercoret di katalog & otomatis ditolak jika dipilih)*.
+- 🛑 **Proteksi Presisi Validasi Roblox**: Memvalidasi Username Roblox pembeli secara langsung ke Database API Resmi Roblox **sebelum channel tiket dibuat**. Pembuatan tiket diblokir jika username tidak terdaftar.
+- 🔢 **Sistem Kode Unik 3 Digit Terakhir**: Mengacak 3 digit kode unik (1 - 999) secara otomatis di background pada nominal transfer untuk membedakan transaksi antar pembeli dengan mudah.
 - 🏪 **Panel Toko Multi-Kategori Interaktif (`/panel`)**: Tampilan katalog toko publik terelompok rapi per kategori dengan balasan privat (*Ephemeral*) tanpa mengotori channel toko.
 - 🚀 **Direct 1-Click Ticket Jump Button**: Pembeli dapat langsung lompat ke channel privat tiketnya hanya dengan 1x klik tombol `🚀 Buka Channel Tiket Kamu`.
 - ❌ **Rejection Reason Modal & Revision Workflow**: Admin dapat menginput alasan penolakan bukti transfer spesifik via form modal, dan pembeli dapat meng-upload foto revisi secara langsung di channel tiket.
-- 🎮 **Verifikasi API Roblox Real-Time**: Memvalidasi Username Roblox pembeli secara langsung ke Database API Resmi Roblox sebelum tiket dibuat.
 - 🎫 **Sistem Tiket Privat Otomatis**: Setiap pembeli mendapatkan text channel privat khusus (`#<kode-item>-<hash>`) di bawah Kategori Discord yang telah ditentukan.
-- 💳 **Verifikasi Pembayaran QRIS (Metode 1)**: Pengiriman gambar QRIS asli toko, verifikasi transfer akurat, dan konfirmasi barang diterima oleh pembeli.
+- 💳 **Verifikasi Pembayaran QRIS**: Pengiriman gambar QRIS asli toko, verifikasi transfer akurat, dan konfirmasi barang diterima oleh pembeli.
 - 📸 **Reply-Based Proof of Delivery**: Admin cukup membalas (*reply*) pesan notifikasi transaksi dengan meng-upload foto bukti pengiriman item untuk meneruskannya ke tiket pembeli.
 - 🏆 **Papan Peringkat Live Top Spenders (`/leaderboard`)**: Leaderboard 10 pembeli terbanyak yang ter-update otomatis secara real-time di channel terpisah (`#leaderboard`).
-- 📊 **Laporan Excel Bulanan Otomatis (`/exportreport`)**: Pengiriman otomatis laporan rekapitulasi penjualan bulanan format Excel (`nama_bulan-tahun.xlsx`) setiap tanggal 1 jam 00:05 WIB ke channel `#laporan`.
+- 📊 **Laporan Excel All-Time & Bulanan Otomatis (`/exportreport`)**: 
+  - **All-Time Export**: 1-Klik dari `/adminpanel` untuk mengunduh rekapitulasi seluruh transaksi penjualan toko sejak awal.
+  - **Bulanan Otomatis**: Pengiriman otomatis rekap bulanan format Excel (`.xlsx`) setiap tanggal 1 jam 00:05 WIB ke channel `#laporan`.
 - 🗄️ **Dukungan Dual Database (Supabase Cloud & Local SQLite)**: Modul Supabase Cloud untuk produksi utama + folder `biznetgio/` native SQLite untuk deployment Biznet GIO VPS.
+- 🏗️ **Arsitektur Modular & Ringkas**: `index.js` dirancang ringan (~110 baris) dengan handler terpisah (`buyerHandler.js`, `adminHandler.js`, `proofDetector.js`, `ticketManager.js`).
 
 ---
 
@@ -28,7 +32,7 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 payment-bot/
 ├── 📁 .github/workflows/   # GitHub Actions Keep-Alive Supabase Workflow
 │   └── keep-alive-supabase.yml
-├── 📁 commands/            # 13 Slash Commands Terstruktur
+├── 📁 commands/            # 14 Slash Commands Terstruktur
 │   ├── addadmin.js
 │   ├── additem.js
 │   ├── adminhelp.js
@@ -48,18 +52,25 @@ payment-bot/
 │   ├── category_emojis.json
 │   ├── items.js
 │   └── panel_config.json
+├── 📁 handlers/            # [BARU] Handler Spesifik Interaksi Discord
+│   ├── adminHandler.js     # Handler Approve, Reject Modal, & Reply Admin
+│   ├── buyerHandler.js     # Handler Select Menu Toko, Modals, QRIS, & SOS
+│   └── proofDetector.js    # Auto-Detector Screenshot Bukti Transfer & Bukti Kirim
 ├── 📁 services/            # Modul Backend Utama
-│   ├── admins.js
-│   ├── panelManager.js
-│   ├── reportManager.js
-│   ├── roblox.js
-│   └── supabase.js
+│   ├── adminPanelGUI.js    # Handler Dashboard GUI Admin (/adminpanel)
+│   ├── admins.js           # Pengelolaan Hak Akses Admin
+│   ├── panelManager.js     # Pengelolaan Embed Katalog & Leaderboard
+│   ├── reportManager.js    # Generator Laporan Penjualan Excel (.xlsx)
+│   ├── roblox.js           # Integrasi API Resmi Roblox
+│   ├── supabase.js         # Client Supabase PostgreSQL Cloud
+│   └── ticketManager.js    # Pengelolaan Siklus Hidup Tiket & Approval
+├── 📁 biznetgio/           # Sub-Folder Deployment Biznet GIO (Native SQLite Engine)
 ├── .env                    # Variabel Rahasia Bot (Token & API Keys)
 ├── .env.example            # Template Konfigurasi untuk Client
 ├── .gitignore              # Proteksi File Rahasia & Modul Berat
 ├── Procfile                # Konfigurasi Hosting Cloud Server (Railway/Heroku)
 ├── deploy-commands.js      # Skrip Pendaftaran Slash Commands ke Discord API
-├── index.js                # Main Bot Gateway & Event Listener
+├── index.js                # Main Bot Gateway Gateway (~110 baris)
 └── package.json            # Manifest Dependensi Node.js
 ```
 
@@ -96,93 +107,46 @@ SUPABASE_KEY=your_supabase_service_role_key_here
 ### 1. Prasyarat System
 - Node.js versi 18.x atau yang lebih baru.
 - Akun Bot Discord dari Discord Developer Portal.
-- Project Supabase (Free / Paid Tier).
+- Project Supabase (Free / Paid Tier) atau SQLite untuk Biznet GIO.
 
-### 2. Instalasi Dependensi
-```bash
-npm install
-```
+### 2. Langkah Instalasi
 
-### 3. Pendaftaran Perintah Slash (Deploy Commands)
-Jalankan skrip ini setiap kali ada penambahan/perubahan Slash Commands:
-```bash
-npm run deploy
-```
-
-### 4. Menjalankan Bot
-- **Mode Development / Uji Coba**:
-  ```bash
-  npm start
-  ```
-- **Mode Production 24/7 (PM2 di VPS)**:
-  ```bash
-  npm install -g pm2
-  pm2 start index.js --name "bebey-bot"
-  pm2 save
-  pm2 startup
-  ```
-
----
-
-## 📜 Daftar Perintah Slash (Slash Commands Reference)
-
-### 👥 Perintah Pembeli (Public Commands)
-| Perintah | Deskripsi |
-| :--- | :--- |
-| `/help` | Menampilkan panduan cara berbelanja & meng-tag channel katalog toko dan leaderboard. |
-
-### ⚙️ Perintah Admin Toko (Admin Commands)
-| Perintah | Deskripsi |
-| :--- | :--- |
-| `/panel` | Mengirimkan Pesan Panel Katalog Toko di channel toko (cth: `#beli-disini`). |
-| `/leaderboard` | Mengirimkan & mendaftarkan Panel Live Leaderboard di channel terpisah (cth: `#leaderboard`). |
-| `/additem` | Menambah item baru ke katalog toko (nama, harga, username, kategori, emoji, deskripsi). |
-| `/edititem` | Mengubah detail item toko secara keseluruhan (dukungan reset emoji). |
-| `/delitem` | Menghapus item spesifik dari katalog toko. |
-| `/editcategory` | Mengubah nama atau emoji ikon kategori produk. |
-| `/delcategory` | Menghapus kategori beserta seluruh item di dalamnya. |
-| `/exportreport` | Mengunduh rekapitulasi laporan penjualan resmi format Excel (`nama_bulan-tahun.xlsx`). |
-| `/adminhelp` | Menampilkan panduan lengkap perintah kelola toko khusus Admin & Owner. |
-
-### 👑 Perintah Admin Utama / Owner (Owner Commands)
-| Perintah | Deskripsi |
-| :--- | :--- |
-| `/addadmin` | Mengangkat Admin Sekunder baru untuk membantu mengelola toko. |
-| `/deladmin` | Mencabut hak akses Admin Sekunder. |
-| `/listadmin` | Menampilkan daftar Owner & Admin Sekunder yang terdaftar. |
-
----
-
-## ☁️ Panduan Deployment (Deployment Guide)
-
-### A. Deployment di Cloud Platform (Railway.app)
-1. Push source code ke GitHub.
-2. Buka **Railway.app** -> New Project -> Deploy from GitHub Repo.
-3. Masukkan variabel rahasia dari `.env` ke menu **Variables** di Railway.
-4. Railway akan otomatis mendeteksi file `Procfile` (`worker: node index.js`) dan menjalankan bot 24/7.
-
-### B. Deployment di VPS Linux (Biznet Gio / Hostinger / DigitalOcean)
-1. Sewa VPS Ubuntu 22.04 LTS (Paket 1 vCPU, 1 GB RAM).
-2. SSH ke VPS dan jalankan perintah:
+1. Clone repositori:
    ```bash
-   sudo apt update && sudo apt install -y nodejs git
-   sudo npm install -g pm2
    git clone https://github.com/Ilhamaji/bot-payment.git
    cd bot-payment
+   ```
+
+2. Install dependensi Node.js:
+   ```bash
    npm install
-   nano .env # Tempel konfigurasi .env Anda
-   npm run deploy
-   pm2 start index.js --name "bebey-bot"
-   pm2 save && pm2 startup
+   ```
+
+3. Daftarkan Perintah Slash Command:
+   ```bash
+   node deploy-commands.js
+   ```
+
+4. Jalankan Bot:
+   ```bash
+   npm run start
    ```
 
 ---
 
-## 🛡️ Lisensi & Keamanan (Security & License)
+## 📊 Manajemen Laporan Penjualan Excel
 
-- **Lisensi**: ISC License
-- **Keamanan**: File `.env` dan `panel_config.json` di-ignore secara otomatis dari versi produksi GitHub untuk menjamin rahasia toko dan token bot tetap aman 100%.
+Bot menyediakan 3 skenario ekspor laporan penjualan yang fleksibel:
+
+1. **All-Time Sales Export (Seluruh Data)**:
+   - Akses via **`/adminpanel`** -> tekan **`📊 Export Laporan Excel`**. File `.xlsx` berisi seluruh riwayat transaksi sukses sejak awal toko berdiri akan langsung terbuat.
+2. **Laporan Otomatis Bulanan**:
+   - Setiap tanggal 1 jam 00:05 WIB, bot secara otomatis mengirimkan rekap bulan sebelumnya ke channel `#laporan`.
+3. **Laporan Spesifik Bulan/Tahun**:
+   - Gunakan perintah **`/exportreport bulan:X tahun:YYYY`** untuk mengambil rekap penjualan bulan tertentu.
 
 ---
 
-*Dikembangkan secara profesional untuk **Bebey Store Official**.* 🚀✨
+## 📄 Lisensi
+
+Hak Cipta © 2026 **Bebey Store Official**. Seluruh Hak Cipta Dilindungi.
