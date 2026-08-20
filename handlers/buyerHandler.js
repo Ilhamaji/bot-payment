@@ -229,13 +229,15 @@ async function handleBuyerInteraction(interaction, client) {
 
 			delete require.cache[require.resolve('../config/items')];
 			const catalogItems = require('../config/items');
-			const { data: purchase } = await supabase.from('purchases').select('item_name, price').eq('order_id', orderId).single();
+			const { data: purchase } = await supabase.from('purchases').select('item_name, price, unique_code').eq('order_id', orderId).single();
 
 			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
 			let totalAmount = 20000;
+			let uniqueCode = 0;
 
 			if (purchase) {
 				totalAmount = purchase.price || 20000;
+				uniqueCode = purchase.unique_code || 0;
 				const foundItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
 				if (foundItem) selectedItem = foundItem;
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
@@ -246,7 +248,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			if (!requireLimitCheck) {
 				const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
-				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
+				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
 
 				const qrisMsg = await interaction.channel.send({
 					embeds: qrisCard.embeds,
@@ -338,20 +340,22 @@ async function handleBuyerInteraction(interaction, client) {
 
 			delete require.cache[require.resolve('../config/items')];
 			const catalogItems = require('../config/items');
-			const { data: purchase } = await supabase.from('purchases').select('item_name, price').eq('order_id', orderId).single();
+			const { data: purchase } = await supabase.from('purchases').select('item_name, price, unique_code').eq('order_id', orderId).single();
 
 			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
 			let totalAmount = 20000;
+			let uniqueCode = 0;
 
 			if (purchase) {
 				totalAmount = purchase.price || 20000;
+				uniqueCode = purchase.unique_code || 0;
 				const foundItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
 				if (foundItem) selectedItem = foundItem;
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
 			}
 
 			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
-			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage);
+			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
 
 			const qrisMsg = await interaction.channel.send({
 				embeds: qrisCard.embeds,
