@@ -29,10 +29,47 @@ function saveItemsData(items, itemsFilePath) {
 	delete require.cache[require.resolve('../config/items')];
 }
 
+function buildItemCategorySelectMenu(item) {
+	const { items } = getItemsData();
+	const categories = [...new Set(items.map(i => i.category || 'General'))];
+
+	// Pastikan kategori item saat ini ada di daftar pilihan
+	if (item.category && !categories.includes(item.category)) {
+		categories.push(item.category);
+	}
+
+	const selectMenu = new StringSelectMenuBuilder()
+		.setCustomId(`ap_select_item_cat_${item.id}`)
+		.setPlaceholder('📁 Klik untuk memilih Kategori Produk');
+
+	categories.slice(0, 24).forEach(cat => {
+		const catEmoji = getCategoryEmoji(cat);
+		selectMenu.addOptions(
+			new StringSelectMenuOptionBuilder()
+				.setLabel(cat)
+				.setValue(cat)
+				.setDescription(`Set kategori produk ini ke ${cat}`)
+				.setEmoji(catEmoji || '📁')
+				.setDefault(item.category && item.category.toLowerCase() === cat.toLowerCase())
+		);
+	});
+
+	// Opsi Tambah Kategori Baru
+	selectMenu.addOptions(
+		new StringSelectMenuOptionBuilder()
+			.setLabel('➕ Tambah Kategori Baru...')
+			.setValue('NEW_CATEGORY')
+			.setDescription('Ketik nama kategori baru secara langsung')
+			.setEmoji('➕')
+	);
+
+	return new ActionRowBuilder().addComponents(selectMenu);
+}
+
 function buildItemCheckboxMenu(item) {
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId(`ap_checkbox_opts_${item.id}`)
-		.setPlaceholder('☑️ Centang Opsi Setting (Bisa pilih lebih dari 1)')
+		.setPlaceholder('☑️ Centang Opsi Setting (Multi-Select Checkbox)')
 		.setMinValues(0)
 		.setMaxValues(2)
 		.addOptions(
@@ -51,6 +88,31 @@ function buildItemCheckboxMenu(item) {
 		);
 
 	return new ActionRowBuilder().addComponents(selectMenu);
+}
+
+function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
+	const catEmoji = getCategoryEmoji(item.category || 'General');
+	const effectiveEmoji = getItemEmoji(item);
+	const reqUserLabel = item.requireUsername !== false ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
+	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
+	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
+
+	const embed = new EmbedBuilder()
+		.setTitle(`📦  ${actionTitle}: ${item.name}`)
+		.setColor(0x2ECC71)
+		.setDescription(`Berikut adalah detail & setting produk **${item.name}**:`)
+		.addFields(
+			{ name: '🆔 ID Item', value: `\`${item.id}\``, inline: true },
+			{ name: '💰 Harga', value: `**Rp ${(item.price || 0).toLocaleString('id-ID')}**`, inline: true },
+			{ name: '📁 Kategori', value: `${catEmoji} \`${item.category || 'General'}\``, inline: true },
+			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
+			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
+			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
+		)
+		.setTimestamp()
+		.setFooter({ text: 'Gunakan 2 Menu Dropdown di bawah untuk memilih Kategori & Centang Setting!' });
+
+	return embed;
 }
 
 async function handleAdminPanelInteraction(interaction, client) {
@@ -144,13 +206,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 				.setStyle(TextInputStyle.Short)
 				.setRequired(true);
 
-			const categoryInput = new TextInputBuilder()
-				.setCustomId('add_category')
-				.setLabel('KATEGORI (cth: Robux, Gamepass):')
-				.setStyle(TextInputStyle.Short)
-				.setValue('Robux')
-				.setRequired(true);
-
 			const notesInput = new TextInputBuilder()
 				.setCustomId('add_notes')
 				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
@@ -162,7 +217,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 				new ActionRowBuilder().addComponents(idInput),
 				new ActionRowBuilder().addComponents(nameInput),
 				new ActionRowBuilder().addComponents(priceInput),
-				new ActionRowBuilder().addComponents(categoryInput),
 				new ActionRowBuilder().addComponents(notesInput)
 			);
 
@@ -421,6 +475,44 @@ async function handleAdminPanelInteraction(interaction, client) {
 	// 2. SELECT MENU INTERACTIONS (ap_select_... & ap_checkbox_...)
 	// ==========================================
 	if (interaction.isStringSelectMenu()) {
+		// Select Menu Pilih Kategori Item
+		if (customId.startsWith('ap_select_item_cat_')) {
+			const itemId = customId.replace('ap_select_item_cat_', '');
+			const selectedCategory = interaction.values[0];
+
+			const { items, itemsFilePath } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			if (selectedCategory === 'NEW_CATEGORY') {
+				const modal = new ModalBuilder()
+					.setCustomId(`ap_modal_newcat_${item.id}`)
+					.setTitle('➕ NAMA KATEGORI BARU');
+
+				const newCatInput = new TextInputBuilder()
+					.setCustomId('new_cat_name')
+					.setLabel('NAMA KATEGORI BARU (cth: Gamepass, Items):')
+					.setStyle(TextInputStyle.Short)
+					.setRequired(true);
+
+				modal.addComponents(new ActionRowBuilder().addComponents(newCatInput));
+				return interaction.showModal(modal);
+			}
+
+			item.category = selectedCategory;
+			saveItemsData(items, itemsFilePath);
+			updateGlobalPanel(client);
+
+			const embed = buildItemDetailEmbed(item, 'SETTING KATEGORI DIPERBARUI');
+			const catRow = buildItemCategorySelectMenu(item);
+			const checkboxRow = buildItemCheckboxMenu(item);
+
+			return interaction.update({ embeds: [embed], components: [catRow, checkboxRow] });
+		}
+
 		// Checkbox Select Menu Options Handler
 		if (customId.startsWith('ap_checkbox_opts_')) {
 			const itemId = customId.replace('ap_checkbox_opts_', '');
@@ -439,21 +531,11 @@ async function handleAdminPanelInteraction(interaction, client) {
 			saveItemsData(items, itemsFilePath);
 			updateGlobalPanel(client);
 
-			const reqUserLabel = item.requireUsername ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
-			const reqLimitLabel = item.requireLimitCheck ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
+			const embed = buildItemDetailEmbed(item, 'SETTING CHECKBOX DIPERBARUI');
+			const catRow = buildItemCategorySelectMenu(item);
+			const checkboxRow = buildItemCheckboxMenu(item);
 
-			const updatedEmbed = new EmbedBuilder()
-				.setTitle('⚙️  SETTING CHECKBOX ITEM DIPERBARUI')
-				.setColor(0x2ECC71)
-				.setDescription(`Berhasil memperbarui opsi centang (checkbox) untuk item **${item.name}**!`)
-				.addFields(
-					{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
-					{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true }
-				)
-				.setTimestamp();
-
-			const newCheckboxRow = buildItemCheckboxMenu(item);
-			return interaction.update({ embeds: [updatedEmbed], components: [newCheckboxRow] });
+			return interaction.update({ embeds: [embed], components: [catRow, checkboxRow] });
 		}
 
 		// Edit Item Modal Launcher
@@ -484,13 +566,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 				.setValue(String(item.price || 0))
 				.setRequired(true);
 
-			const categoryInput = new TextInputBuilder()
-				.setCustomId('edit_category')
-				.setLabel('KATEGORI:')
-				.setStyle(TextInputStyle.Short)
-				.setValue(item.category || 'General')
-				.setRequired(true);
-
 			const notesInput = new TextInputBuilder()
 				.setCustomId('edit_notes')
 				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
@@ -501,7 +576,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 			modal.addComponents(
 				new ActionRowBuilder().addComponents(nameInput),
 				new ActionRowBuilder().addComponents(priceInput),
-				new ActionRowBuilder().addComponents(categoryInput),
 				new ActionRowBuilder().addComponents(notesInput)
 			);
 
@@ -586,12 +660,34 @@ async function handleAdminPanelInteraction(interaction, client) {
 	// 3. MODAL SUBMISSIONS (ap_modal_...)
 	// ==========================================
 	if (interaction.isModalSubmit()) {
+		// Submit Tambah Kategori Baru untuk Item
+		if (customId.startsWith('ap_modal_newcat_')) {
+			const itemId = customId.replace('ap_modal_newcat_', '');
+			const newCatName = interaction.fields.getTextInputValue('new_cat_name').trim() || 'General';
+
+			const { items, itemsFilePath } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			item.category = newCatName;
+			saveItemsData(items, itemsFilePath);
+			updateGlobalPanel(client);
+
+			const embed = buildItemDetailEmbed(item, 'KATEGORI BARU DITAMBAHKAN');
+			const catRow = buildItemCategorySelectMenu(item);
+			const checkboxRow = buildItemCheckboxMenu(item);
+
+			return interaction.reply({ embeds: [embed], components: [catRow, checkboxRow], flags: MessageFlags.Ephemeral });
+		}
+
 		// Submit Tambah Item
 		if (customId === 'ap_modal_additem') {
 			const id = interaction.fields.getTextInputValue('add_id').trim().toLowerCase().replace(/\s+/g, '_');
 			const name = interaction.fields.getTextInputValue('add_name').trim();
 			const price = parseInt(interaction.fields.getTextInputValue('add_price').trim(), 10) || 0;
-			const category = interaction.fields.getTextInputValue('add_category').trim() || 'Robux';
 			const notes = interaction.fields.getTextInputValue('add_notes').trim();
 
 			const { items, itemsFilePath } = getItemsData();
@@ -599,12 +695,16 @@ async function handleAdminPanelInteraction(interaction, client) {
 				return interaction.reply({ content: `❌ ID Item \`${id}\` sudah ada. Gunakan ID lain.`, flags: MessageFlags.Ephemeral });
 			}
 
-			const isRobuxCategory = category.toLowerCase().includes('robux');
+			// Mengambil kategori pertama di toko sebagai default
+			const existingCategories = [...new Set(items.map(i => i.category || 'General'))];
+			const defaultCategory = existingCategories[0] || 'Robux';
+
+			const isRobuxCategory = defaultCategory.toLowerCase().includes('robux');
 			const newItem = {
 				id: id,
 				name: name,
 				price: price,
-				category: category,
+				category: defaultCategory,
 				description: 'Produk Bebey Store',
 				emoji: '',
 				requireUsername: true,
@@ -616,22 +716,11 @@ async function handleAdminPanelInteraction(interaction, client) {
 			saveItemsData(items, itemsFilePath);
 			updateGlobalPanel(client);
 
-			const embed = new EmbedBuilder()
-				.setTitle('➕  ITEM DITAMBAHKAN — SILAKAN ATUR CHECKBOX OPSI')
-				.setColor(0x2ECC71)
-				.setDescription(
-					`Berhasil menambahkan **${name}** ke katalog toko!\n\n` +
-					`👇 **Gunakan Menu Centang (Checkbox) di bawah untuk memilih setting item:**`
-				)
-				.addFields(
-					{ name: 'ID Item', value: `\`${id}\``, inline: true },
-					{ name: 'Harga', value: `**Rp ${price.toLocaleString('id-ID')}**`, inline: true },
-					{ name: 'Kategori', value: `\`${category}\``, inline: true }
-				)
-				.setTimestamp();
-
+			const embed = buildItemDetailEmbed(newItem, 'ITEM BARU DITAMBAHKAN');
+			const catRow = buildItemCategorySelectMenu(newItem);
 			const checkboxRow = buildItemCheckboxMenu(newItem);
-			return interaction.reply({ embeds: [embed], components: [checkboxRow], flags: MessageFlags.Ephemeral });
+
+			return interaction.reply({ embeds: [embed], components: [catRow, checkboxRow], flags: MessageFlags.Ephemeral });
 		}
 
 		// Submit Edit Item
@@ -639,7 +728,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const itemId = customId.replace('ap_modal_edititem_', '');
 			const name = interaction.fields.getTextInputValue('edit_name').trim();
 			const price = parseInt(interaction.fields.getTextInputValue('edit_price').trim(), 10) || 0;
-			const category = interaction.fields.getTextInputValue('edit_category').trim() || 'General';
 			const notes = interaction.fields.getTextInputValue('edit_notes').trim();
 
 			const { items, itemsFilePath } = getItemsData();
@@ -651,7 +739,6 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			item.name = name;
 			item.price = price;
-			item.category = category;
 
 			if (notes) {
 				item.notes = notes;
@@ -662,17 +749,11 @@ async function handleAdminPanelInteraction(interaction, client) {
 			saveItemsData(items, itemsFilePath);
 			updateGlobalPanel(client);
 
-			const embed = new EmbedBuilder()
-				.setTitle('✏️  DETAIL ITEM DISIMPAN — SILAKAN ATUR CHECKBOX OPSI')
-				.setColor(0x2ECC71)
-				.setDescription(
-					`Berhasil menyimpan perubahan nama & harga item **${name}**!\n\n` +
-					`👇 **Gunakan Menu Centang (Checkbox) di bawah untuk mengubah setting item:**`
-				)
-				.setTimestamp();
-
+			const embed = buildItemDetailEmbed(item, 'DETAIL ITEM DIPERBARUI');
+			const catRow = buildItemCategorySelectMenu(item);
 			const checkboxRow = buildItemCheckboxMenu(item);
-			return interaction.reply({ embeds: [embed], components: [checkboxRow], flags: MessageFlags.Ephemeral });
+
+			return interaction.reply({ embeds: [embed], components: [catRow, checkboxRow], flags: MessageFlags.Ephemeral });
 		}
 
 		// Submit Edit Kategori
@@ -746,7 +827,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 					return interaction.reply({ content: `⚠️ ${result.message}`, flags: MessageFlags.Ephemeral });
 				}
 			} catch (err) {
-				return interaction.reply({ content: '❌ Gagal menemukan User Discord dengan ID/mention meggunakan ID/mention tersebut.', flags: MessageFlags.Ephemeral });
+				return interaction.reply({ content: '❌ Gagal menemukan User Discord dengan ID/mention tersebut.', flags: MessageFlags.Ephemeral });
 			}
 		}
 	}
@@ -754,5 +835,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 module.exports = {
 	handleAdminPanelInteraction,
-	buildItemCheckboxMenu
+	buildItemCategorySelectMenu,
+	buildItemCheckboxMenu,
+	buildItemDetailEmbed
 };
