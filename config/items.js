@@ -41,8 +41,9 @@ module.exports = [
         "category": "Robux",
         "description": "Pengisian Robux langsung via Username Roblox (Tanpa Login).",
         "emoji": "💎",
-        "requireUsername": true,
-        "requireLimitCheck": true
+        "requireUsername": false,
+        "requireLimitCheck": false,
+        "notes": "test"
     },
     {
         "id": "rbx500",
@@ -61,6 +62,26 @@ module.exports = [
         "category": "General",
         "description": "Produk Bebey Store",
         "emoji": "📦",
+        "requireUsername": false,
+        "requireLimitCheck": false
+    },
+    {
+        "id": "test",
+        "name": "Test",
+        "price": 200000,
+        "category": "Item",
+        "description": "Produk Bebey Store",
+        "emoji": "",
+        "requireUsername": false,
+        "requireLimitCheck": false
+    },
+    {
+        "id": "tdr",
+        "name": "TDR 5000",
+        "price": 20000,
+        "category": "General",
+        "description": "Produk Bebey Store",
+        "emoji": "",
         "requireUsername": false,
         "requireLimitCheck": false
     }
