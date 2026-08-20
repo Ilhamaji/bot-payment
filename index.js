@@ -674,6 +674,13 @@ client.on(Events.MessageCreate, async message => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
+	// 0. Handle Interactive Admin Dashboard GUI (ap_)
+	if (interaction.customId && interaction.customId.startsWith('ap_')) {
+		const { handleAdminPanelInteraction } = require('./services/adminPanelGUI');
+		await handleAdminPanelInteraction(interaction, client);
+		return;
+	}
+
 	// 1. Handle Slash Commands
 	if (interaction.isChatInputCommand()) {
 		const command = interaction.client.commands.get(interaction.commandName);
