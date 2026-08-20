@@ -215,7 +215,8 @@ async function sendMonthlyReport(clientInstance, targetChannelId = null, forcedY
     const totalTransactions = transactions ? transactions.length : 0;
     const totalRevenue = transactions ? transactions.reduce((sum, t) => sum + (Number(t.price) || 0), 0) : 0;
 
-    const buffer = await generateExcelBuffer(year, month, transactions || []);
+    const excelRes = await generateExcelBuffer(year, month, transactions || []);
+    const buffer = (excelRes && excelRes.buffer) ? excelRes.buffer : excelRes;
     const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase();
     const fileName = `Laporan_Penjualan_${monthTitle}_${year}.xlsx`;
     const attachment = new AttachmentBuilder(buffer, { name: fileName });
