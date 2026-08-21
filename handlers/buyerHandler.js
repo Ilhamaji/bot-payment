@@ -122,8 +122,8 @@ async function sendPsGuideEmbedIfNeeded(interaction, orderId) {
 
 	const { getGlobalPrivateServerUrl } = require('../services/panelManager');
 	const globalPsUrl = getGlobalPrivateServerUrl();
-	const isPsAllowed = !selectedItem || selectedItem.usePrivateServer !== false;
-	const activePsUrl = (isPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') 
+	const isPsEnabled = selectedItem && selectedItem.usePrivateServer === true;
+	const activePsUrl = (isPsEnabled && globalPsUrl && globalPsUrl.trim() !== '') 
 		? globalPsUrl.trim() 
 		: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
 
