@@ -110,6 +110,58 @@ function removeItemFromDraftCart(userId, itemId, reduceQty = 1) {
 	return draft;
 }
 
+function buildAddItemCategoryComponents(selectedCatName = null) {
+	delete require.cache[require.resolve('../config/items')];
+	const currentItems = require('../config/items');
+
+	const categories = [...new Set(currentItems.map(i => i.category || 'General'))];
+	const activeCategory = selectedCatName || categories[0] || 'General';
+
+	const categoryOptions = categories.map(cat => {
+		const catEmoji = getPanelManager().getCategoryEmoji(cat);
+		return new StringSelectMenuOptionBuilder()
+			.setLabel(`Kategori: ${cat}`)
+			.setValue(cat)
+			.setEmoji(catEmoji || '📁')
+			.setDefault(cat.toLowerCase() === activeCategory.toLowerCase());
+	});
+
+	const catSelectMenu = new StringSelectMenuBuilder()
+		.setCustomId('preticket_select_category')
+		.setPlaceholder(`📁 Pilih Kategori Sub-Menu (${activeCategory})...`)
+		.addOptions(categoryOptions.slice(0, 25));
+
+	const filteredItems = currentItems.filter(i => (i.category || 'General').toLowerCase() === activeCategory.toLowerCase());
+
+	const itemOptions = filteredItems.slice(0, 25).map(item => {
+		const isHeld = item.available === false || item.hold === true;
+		const itemEmoji = item.emoji || '📦';
+		return new StringSelectMenuOptionBuilder()
+			.setLabel(isHeld ? `⛔ ${item.name} (Ditahan)` : `${item.name}`)
+			.setValue(item.id)
+			.setDescription(`Rp ${(item.price || 0).toLocaleString('id-ID')} • ${activeCategory}`)
+			.setEmoji(itemEmoji);
+	});
+
+	const itemSelectMenu = new StringSelectMenuBuilder()
+		.setCustomId('preticket_select_added_item')
+		.setPlaceholder(`➕ Pilih Item dari Kategori "${activeCategory}"...`)
+		.addOptions(itemOptions.length > 0 ? itemOptions : [
+			new StringSelectMenuOptionBuilder().setLabel('Tidak ada item di kategori ini').setValue('empty').setDisabled(true)
+		]);
+
+	const btnCancelAdd = new ButtonBuilder()
+		.setCustomId('preticket_cancel_add_item')
+		.setLabel('↩️ Kembali ke Keranjang')
+		.setStyle(ButtonStyle.Secondary);
+
+	const row1 = new ActionRowBuilder().addComponents(catSelectMenu);
+	const row2 = new ActionRowBuilder().addComponents(itemSelectMenu);
+	const row3 = new ActionRowBuilder().addComponents(btnCancelAdd);
+
+	return [row1, row2, row3];
+}
+
 function buildPreTicketCartEmbed(userId) {
 	const draft = draftCarts.get(userId);
 	if (!draft || draft.items.length === 0) return null;
@@ -328,6 +380,20 @@ async function handleBuyerInteraction(interaction, client) {
 					flags: MessageFlags.Ephemeral
 				});
 			}
+		}
+
+		// Dropdown Pilih Kategori Sub-Menu Saat Tambah Item ke Pre-Ticket Cart
+		if (interaction.customId === 'preticket_select_category') {
+			const selectedCategory = interaction.values[0];
+			const components = buildAddItemCategoryComponents(selectedCategory);
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+			const embeds = preTicketData ? preTicketData.embeds : [];
+
+			return interaction.update({
+				content: `🛒 **PILIH PRODUK DARI KATEGORI: \`${selectedCategory}\`**`,
+				embeds: embeds,
+				components: components
+			});
 		}
 
 		// Dropdown Pilih Item Tambahan Untuk Pre-Ticket Cart
@@ -1031,37 +1097,14 @@ async function handleBuyerInteraction(interaction, client) {
 
 		// Pre-Ticket Cart Buttons
 		if (customId === 'preticket_add_item') {
-			delete require.cache[require.resolve('../config/items')];
-			const currentItems = require('../config/items');
-
-			const selectOptions = currentItems.slice(0, 25).map(item => {
-				const isHeld = item.available === false || item.hold === true;
-				return new StringSelectMenuOptionBuilder()
-					.setLabel(isHeld ? `⛔ ${item.name} (Ditahan)` : `${item.name}`)
-					.setValue(item.id)
-					.setDescription(`Rp ${item.price.toLocaleString('id-ID')} • ${item.category}`);
-			});
-
-			const selectMenu = new StringSelectMenuBuilder()
-				.setCustomId('preticket_select_added_item')
-				.setPlaceholder('➕ Pilih Produk Lain Untuk Ditambahkan...')
-				.addOptions(selectOptions);
-
-			const btnCancelAdd = new ButtonBuilder()
-				.setCustomId('preticket_cancel_add_item')
-				.setLabel('↩️ Kembali ke Keranjang')
-				.setStyle(ButtonStyle.Secondary);
-
-			const row1 = new ActionRowBuilder().addComponents(selectMenu);
-			const row2 = new ActionRowBuilder().addComponents(btnCancelAdd);
-
+			const components = buildAddItemCategoryComponents();
 			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
 			const embeds = preTicketData ? preTicketData.embeds : [];
 
 			return interaction.update({
-				content: `🛒 **PILIH PRODUK TAMBAHAN UNTUK DRAF KERANJANG:**`,
+				content: `🛒 **PILIH KATEGORI & PRODUK TAMBAHAN UNTUK DRAF KERANJANG:**`,
 				embeds: embeds,
-				components: [row1, row2]
+				components: components
 			});
 		}
 
