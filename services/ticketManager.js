@@ -346,7 +346,8 @@ function buildCartEmbedAndComponents(orderId) {
 
 	let activePsUrl = null;
 	for (const item of cart.items) {
-		if (item.usePrivateServer && globalPsUrl && globalPsUrl.trim() !== '') {
+		const isPsAllowed = item.usePrivateServer !== false;
+		if (isPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') {
 			activePsUrl = globalPsUrl.trim();
 			break;
 		} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {

@@ -115,7 +115,7 @@ function buildItemCategorySelectMenu(item) {
 
 function buildItemCheckboxMenu(item) {
 	const isHeld = item.available === false || item.hold === true;
-	const usePs = item.usePrivateServer === true;
+	const usePs = item.usePrivateServer !== false;
 
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId(`ap_checkbox_opts_${item.id}`)
@@ -178,7 +178,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
 	const isHeld = item.available === false || item.hold === true;
 	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
-	const usePsLabel = item.usePrivateServer === true ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`';
+	const usePsLabel = item.usePrivateServer !== false ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
 
 	const embed = new EmbedBuilder()
