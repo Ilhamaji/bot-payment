@@ -697,6 +697,32 @@ async function handleBuyerInteraction(interaction, client) {
 			if (psButton) agreeRow.addComponents(psButton);
 
 			await interaction.channel.send({ embeds: [notesEmbed], components: [agreeRow] });
+
+			if (activePsUrl && activePsUrl !== '') {
+				const psGuideEmbed = new EmbedBuilder()
+					.setTitle('🌐  PANDUAN TRANSAKSI PRIVATE WORLD / SERVER')
+					.setColor(0x9B59B6)
+					.setDescription(
+						`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
+						`1️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
+						`2️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
+						`3️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
+						`4️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
+						`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
+					)
+					.setTimestamp()
+					.setFooter({ text: `💖 Bebey Store Official • ${orderId}` });
+
+				const psGuideBtn = new ButtonBuilder()
+					.setLabel('🌐 Masuk Private World')
+					.setStyle(ButtonStyle.Link)
+					.setURL(activePsUrl);
+
+				const psGuideRow = new ActionRowBuilder().addComponents(psGuideBtn);
+
+				await interaction.channel.send({ embeds: [psGuideEmbed], components: [psGuideRow] });
+			}
+
 			return;
 		}
 
