@@ -1,14 +1,30 @@
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+const useSqlite = process.env.USE_SQLITE === 'true' || !supabaseUrl || !supabaseKey || supabaseUrl.includes('your-project');
+
+let supabase = null;
+if (!useSqlite) {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (e) {
+    console.warn('⚠️ Gagal koneksi ke Supabase, otomatis beralih ke database lokal SQLite.');
+  }
+}
+
+const sqlite = require('./sqlite');
 
 /**
- * Catat pesanan baru ke Supabase
+ * Catat pesanan baru (Supabase / SQLite)
  */
 async function createPurchase(orderId, robloxUsername, itemName, price, uniqueCode = 0, status = 'pending', discordTag = '') {
+  if (useSqlite || !supabase) {
+    return sqlite.createPurchase(orderId, robloxUsername, itemName, price, uniqueCode, status, discordTag);
+  }
+
   try {
     const numericPrice = Number(price) || 0;
     const numericUniqueCode = Number(uniqueCode) || 0;
@@ -30,18 +46,15 @@ async function createPurchase(orderId, robloxUsername, itemName, price, uniqueCo
       .insert([payload]);
 
     if (error) {
-      // Smart Fallback jika kolom discord_username atau price belum ada di tabel Supabase
       const hasDiscordUsernameError = error.message && error.message.includes('discord_username');
       const hasPriceError = error.code === 'PGRST204' || (error.message && error.message.includes('price'));
 
       if (hasDiscordUsernameError) {
-        console.warn('⚠️ Kolom `discord_username` belum ada di Supabase, mencoba insert tanpa kolom discord_username...');
         delete payload.discord_username;
         payload.roblox_username = `${cleanDiscordTag} (${cleanRobloxUsername})`;
       }
 
       if (hasPriceError) {
-        console.warn('⚠️ Kolom `price` belum ada di Supabase, mencoba insert tanpa kolom price...');
         delete payload.price;
       }
 
@@ -50,22 +63,26 @@ async function createPurchase(orderId, robloxUsername, itemName, price, uniqueCo
     }
 
     if (error) {
-      console.error('Error creating purchase in Supabase:', error);
-      return false;
+      console.error('Error creating purchase in Supabase, falling back to SQLite:', error);
+      return sqlite.createPurchase(orderId, robloxUsername, itemName, price, uniqueCode, status, discordTag);
     }
 
     console.log(`[SUPABASE] Pesanan dicatat: ${orderId} | Roblox: ${cleanRobloxUsername} | Discord: ${cleanDiscordTag} | Item: ${itemName} | Nominal: Rp ${totalPrice.toLocaleString('id-ID')} | Status: ${status}`);
     return true;
   } catch (err) {
-    console.error('Unexpected error during Supabase insert:', err);
-    return false;
+    console.error('Unexpected error during Supabase insert, falling back to SQLite:', err);
+    return sqlite.createPurchase(orderId, robloxUsername, itemName, price, uniqueCode, status, discordTag);
   }
 }
 
 /**
- * Update status pesanan (misal: dari pending menjadi fulfilled atau rejected)
+ * Update status pesanan
  */
 async function updatePurchaseStatus(orderId, newStatus) {
+  if (useSqlite || !supabase) {
+    return sqlite.updatePurchaseStatus(orderId, newStatus);
+  }
+
   try {
     const { data, error } = await supabase
       .from('purchases')
@@ -73,15 +90,15 @@ async function updatePurchaseStatus(orderId, newStatus) {
       .eq('order_id', orderId);
 
     if (error) {
-      console.error('Error updating purchase status in Supabase:', error);
-      return false;
+      console.error('Error updating purchase status in Supabase, falling back to SQLite:', error);
+      return sqlite.updatePurchaseStatus(orderId, newStatus);
     }
 
     console.log(`[SUPABASE] Order ${orderId} diupdate menjadi ${newStatus}`);
     return true;
   } catch (err) {
-    console.error('Unexpected error during Supabase update:', err);
-    return false;
+    console.error('Unexpected error during Supabase update, falling back to SQLite:', err);
+    return sqlite.updatePurchaseStatus(orderId, newStatus);
   }
 }
 
@@ -89,6 +106,10 @@ async function updatePurchaseStatus(orderId, newStatus) {
  * Ambil Top Spender (Leaderboard Pembeli Terbanyak)
  */
 async function getTopSpenders(limit = 10) {
+  if (useSqlite || !supabase) {
+    return sqlite.getTopSpenders(limit);
+  }
+
   try {
     delete require.cache[require.resolve('../config/items')];
     const catalogItems = require('../config/items');
@@ -111,10 +132,9 @@ async function getTopSpenders(limit = 10) {
     }
 
     if (error || !data) {
-      return [];
+      return sqlite.getTopSpenders(limit);
     }
 
-    // Filter transaksi jika leaderboard pernah di-reset oleh Admin
     if (resetAt) {
       data = data.filter(row => {
         if (!row.created_at) return true;
@@ -124,7 +144,6 @@ async function getTopSpenders(limit = 10) {
 
     const spenderMap = {};
     data.forEach(row => {
-      // Prioritaskan discord_username jika ada, fallback ke roblox_username
       const username = (row.discord_username && row.discord_username.trim() !== '') 
         ? row.discord_username.trim() 
         : (row.roblox_username || 'Unknown');
@@ -137,27 +156,40 @@ async function getTopSpenders(limit = 10) {
           (i.name && row.item_name && i.name.toLowerCase() === row.item_name.toLowerCase()) || 
           (i.id && row.item_name && i.id.toLowerCase() === row.item_name.toLowerCase())
         );
-        if (foundItem) {
-          amount = foundItem.price;
-        } else {
-          amount = 20000;
-        }
+        amount = foundItem ? foundItem.price : 20000;
       }
 
       spenderMap[username] = (spenderMap[username] || 0) + amount;
     });
 
     const sortedSpenders = Object.keys(spenderMap)
-      .map(username => ({
-        username: username,
-        totalSpent: spenderMap[username]
-      }))
+      .map(username => ({ username: username, totalSpent: spenderMap[username] }))
       .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, limit);
 
     return sortedSpenders;
   } catch (err) {
-    return [];
+    return sqlite.getTopSpenders(limit);
+  }
+}
+
+/**
+ * Ambil seluruh transaksi (untuk Excel Report)
+ */
+async function getAllPurchases() {
+  if (useSqlite || !supabase) {
+    return sqlite.getAllPurchases();
+  }
+  try {
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('*')
+      .eq('status', 'fulfilled')
+      .order('created_at', { ascending: true });
+    if (error || !data) return sqlite.getAllPurchases();
+    return data;
+  } catch (e) {
+    return sqlite.getAllPurchases();
   }
 }
 
@@ -165,5 +197,6 @@ module.exports = {
   supabase,
   createPurchase,
   updatePurchaseStatus,
-  getTopSpenders
+  getTopSpenders,
+  getAllPurchases
 };

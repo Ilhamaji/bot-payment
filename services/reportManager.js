@@ -1,6 +1,6 @@
 const ExcelJS = require('exceljs');
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { supabase } = require('./supabase');
+const { supabase, getAllPurchases } = require('./supabase');
 
 const MONTH_NAMES = [
     'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
@@ -8,23 +8,14 @@ const MONTH_NAMES = [
 ];
 
 /**
- * Mengambil SELURUH data transaksi dari Supabase (All-Time)
+ * Mengambil SELURUH data transaksi dari Database (SQLite / Supabase) (All-Time)
  */
 async function fetchAllTransactions() {
     try {
-        const { data, error } = await supabase
-            .from('purchases')
-            .select('*')
-            .eq('status', 'fulfilled')
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            console.error('Error fetching all purchases from Supabase:', error);
-            return [];
-        }
+        const data = await getAllPurchases();
         return data || [];
     } catch (err) {
-        console.error('Error executing Supabase all purchases query:', err);
+        console.error('Error executing all purchases query:', err);
         return [];
     }
 }
