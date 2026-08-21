@@ -658,6 +658,30 @@ async function handleAdminPanelInteraction(interaction, client) {
 			});
 		}
 
+		// Hapus Row Database Transaksi (ap_btn_deletedb_row)
+		if (customId === 'ap_btn_deletedb_row') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat menghapus row database.', flags: MessageFlags.Ephemeral });
+			}
+
+			const modal = new ModalBuilder()
+				.setCustomId('modal_delete_db_row')
+				.setTitle('HAPUS ROW DATABASE TRANSAKSI');
+
+			const orderIdInput = new TextInputBuilder()
+				.setCustomId('target_order_id')
+				.setLabel("MASUKKAN ORDER ID KHUSUS:")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("Cth: RBX_100-1546 atau SKIN_ENLIGHTENED-1AE2")
+				.setRequired(true);
+
+			const row = new ActionRowBuilder().addComponents(orderIdInput);
+			modal.addComponents(row);
+
+			await interaction.showModal(modal);
+			return true;
+		}
+
 		// Kelola Admin GUI (Khusus Owner)
 		if (customId === 'ap_btn_manageadmin') {
 			if (!isOwner(interaction.user.id)) {
@@ -970,6 +994,47 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const components = getItemSettingComponents(item);
 
 			return interaction.reply({ embeds: [embed], components: components, flags: MessageFlags.Ephemeral });
+		}
+
+		// Modal Submit Hapus Row Database
+		if (customId === 'modal_delete_db_row') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat menghapus row database.', flags: MessageFlags.Ephemeral });
+			}
+
+			const targetOrderId = interaction.fields.getTextInputValue('target_order_id').trim().toUpperCase();
+			const { getPurchaseById, deletePurchaseById } = require('./supabase');
+			const purchase = await getPurchaseById(targetOrderId);
+
+			if (!purchase) {
+				return interaction.reply({
+					content: `❌ **ORDER ID TIDAK DITEMUKAN!** Data transaksi dengan Order ID \`${targetOrderId}\` tidak terdaftar di database.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
+			const success = await deletePurchaseById(targetOrderId);
+
+			if (success) {
+				updateGlobalPanel(client);
+
+				return interaction.reply({
+					content: 
+						`✅ **ROW TRANSAKSI BERHASIL DIHAPUS DARI DATABASE!**\n\n` +
+						`🆔 **Order ID:** \`${targetOrderId}\`\n` +
+						`👤 **Roblox / Buyer:** \`${purchase.roblox_username || purchase.discord_username || 'N/A'}\`\n` +
+						`📦 **Item:** \`${purchase.item_name}\`\n` +
+						`💰 **Harga:** Rp ${(purchase.price || 0).toLocaleString('id-ID')}\n` +
+						`📌 **Status:** \`${purchase.status}\`\n\n` +
+						`Data transaksi ini telah terhapus permanen dari database (SQLite/Supabase).`,
+					flags: MessageFlags.Ephemeral
+				});
+			} else {
+				return interaction.reply({
+					content: `❌ **GAGAL MENGHAPUS!** Terjadi kesalahan saat menghapus data \`${targetOrderId}\` dari database.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
 		}
 
 		// Submit Tambah Item
