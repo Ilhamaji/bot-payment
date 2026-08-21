@@ -667,7 +667,8 @@ async function handleBuyerInteraction(interaction, client) {
 			let psButton = null;
 			const { getGlobalPrivateServerUrl } = require('../services/panelManager');
 			const globalPsUrl = getGlobalPrivateServerUrl();
-			const activePsUrl = (selectedItem && selectedItem.usePrivateServer && globalPsUrl) 
+			const isPsAllowed = !selectedItem || selectedItem.usePrivateServer !== false;
+			const activePsUrl = (isPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') 
 				? globalPsUrl.trim() 
 				: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
 
