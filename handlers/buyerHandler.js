@@ -146,10 +146,11 @@ async function sendPsGuideEmbedIfNeeded(interaction, orderId) {
 			.setColor(0x9B59B6)
 			.setDescription(
 				`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
-				`1️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
-				`2️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
-				`3️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
-				`4️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
+				`1️⃣ **Bayar QRIS**: Lakukan pembayaran QRIS sesuai nominal pada kartu di bawah ini & upload bukti transfer.\n` +
+				`2️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
+				`3️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
+				`4️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
+				`5️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
 				`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
 			)
 			.setTimestamp()
