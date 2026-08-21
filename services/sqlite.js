@@ -189,9 +189,56 @@ async function getAllPurchases() {
     }
 }
 
+/**
+ * Ambil data pesanan spesifik berdasarkan Order ID
+ */
+async function getPurchaseById(orderId) {
+    try {
+        if (!orderId) return null;
+        const cleanOrderId = orderId.toUpperCase();
+        if (useNativeSqlite && db) {
+            const stmt = db.prepare(`SELECT * FROM purchases WHERE UPPER(order_id) = ?`);
+            return stmt.get(cleanOrderId) || null;
+        } else {
+            const list = loadJsonStore();
+            return list.find(p => (p.order_id || '').toUpperCase() === cleanOrderId) || null;
+        }
+    } catch (err) {
+        console.error('Error fetching purchase by ID from SQLite:', err);
+        return null;
+    }
+}
+
+/**
+ * Update username roblox pesanan
+ */
+async function updateRobloxUsername(orderId, robloxUsername) {
+    try {
+        if (!orderId) return false;
+        const cleanOrderId = orderId.toUpperCase();
+        if (useNativeSqlite && db) {
+            const stmt = db.prepare(`UPDATE purchases SET roblox_username = ? WHERE UPPER(order_id) = ?`);
+            stmt.run(robloxUsername, cleanOrderId);
+        } else {
+            const list = loadJsonStore();
+            const item = list.find(p => (p.order_id || '').toUpperCase() === cleanOrderId);
+            if (item) {
+                item.roblox_username = robloxUsername;
+                saveJsonStore(list);
+            }
+        }
+        return true;
+    } catch (err) {
+        console.error('Error updating roblox username in SQLite:', err);
+        return false;
+    }
+}
+
 module.exports = {
     createPurchase,
     updatePurchaseStatus,
     getTopSpenders,
-    getAllPurchases
+    getAllPurchases,
+    getPurchaseById,
+    updateRobloxUsername
 };

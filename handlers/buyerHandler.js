@@ -27,7 +27,7 @@ const {
 	buildQrisPaymentEmbedForCart
 } = require('../services/ticketManager');
 const { validateRobloxUsername, getRobloxAvatarHeadshot } = require('../services/roblox');
-const { supabase } = require('../services/supabase');
+const { supabase, getPurchaseById, updatePurchaseStatus, updateRobloxUsername } = require('../services/supabase');
 const { isAdmin } = require('../services/admins');
 
 function getPanelManager() {
@@ -184,10 +184,9 @@ async function refreshTicketCartAndQris(orderId) {
 	const qrisMsg = qrisMessages.get(cleanOrderId);
 
 	if (qrisData) {
-		await supabase.from('purchases').update({
-			item_name: qrisData.itemSummaryName,
-			total_price: qrisData.totalAmount
-		}).eq('order_id', cleanOrderId);
+		try {
+			await updatePurchaseStatus(cleanOrderId, 'pending');
+		} catch (e) {}
 
 		if (qrisMsg) {
 			try {
@@ -508,8 +507,7 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			await interaction.deferUpdate();
-
-			await supabase.from('purchases').update({ roblox_username: robloxCheck.username }).eq('order_id', orderId);
+			await updateRobloxUsername(orderId, robloxCheck.username);
 
 			const avatarUrl = await getRobloxAvatarHeadshot(robloxCheck.id);
 
@@ -571,7 +569,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			delete require.cache[require.resolve('../config/items')];
 			const catalogItems = require('../config/items');
-			const { data: purchase } = await supabase.from('purchases').select('item_name').eq('order_id', orderId).single();
+			const purchase = await getPurchaseById(orderId);
 
 			let selectedItem = null;
 			if (purchase) {
@@ -624,7 +622,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			delete require.cache[require.resolve('../config/items')];
 			const catalogItems = require('../config/items');
-			const { data: purchase } = await supabase.from('purchases').select('item_name, price, unique_code').eq('order_id', orderId).single();
+			const purchase = await getPurchaseById(orderId);
 
 			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
 			let totalAmount = 20000;
@@ -769,7 +767,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			delete require.cache[require.resolve('../config/items')];
 			const catalogItems = require('../config/items');
-			const { data: purchase } = await supabase.from('purchases').select('item_name, price, unique_code').eq('order_id', orderId).single();
+			const purchase = await getPurchaseById(orderId);
 
 			let selectedItem = { name: 'Produk Bebey Store', emoji: '📦' };
 			let totalAmount = 20000;
@@ -838,7 +836,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			await interaction.update({ embeds: [updatedProofEmbed], components: [] });
 
-			const { data: purchase } = await supabase.from('purchases').select('*').eq('order_id', orderId).single();
+			const purchase = await getPurchaseById(orderId);
 
 			const itemName = purchase ? purchase.item_name : 'N/A';
 			const itemPrice = purchase ? `Rp ${purchase.price.toLocaleString('id-ID')}` : 'N/A';
@@ -1223,10 +1221,9 @@ async function handleBuyerInteraction(interaction, client) {
 			// Update Supabase Purchase record dengan total & rincian barang
 			const cart = getCart(orderId);
 			if (cart) {
-				await supabase.from('purchases').update({
-					item_name: qrisData.itemSummaryName,
-					total_price: qrisData.totalAmount
-				}).eq('order_id', orderId.toUpperCase());
+				try {
+					await updatePurchaseStatus(orderId, 'pending');
+				} catch (e) {}
 			}
 
 			const qrisMsg = await interaction.channel.send({
@@ -1421,7 +1418,7 @@ async function handleBuyerInteraction(interaction, client) {
 				await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 			} catch (e) {}
 
-			const { data: purchase } = await supabase.from('purchases').select('*').eq('order_id', orderId).single();
+			const purchase = await getPurchaseById(orderId);
 
 			let deliveryProofUrl = null;
 			let paymentProofUrl = null;

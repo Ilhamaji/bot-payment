@@ -193,10 +193,45 @@ async function getAllPurchases() {
   }
 }
 
+async function getPurchaseById(orderId) {
+  if (useSqlite || !supabase) {
+    return sqlite.getPurchaseById(orderId);
+  }
+  try {
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+    if (error || !data) return sqlite.getPurchaseById(orderId);
+    return data;
+  } catch (e) {
+    return sqlite.getPurchaseById(orderId);
+  }
+}
+
+async function updateRobloxUsername(orderId, robloxUsername) {
+  if (useSqlite || !supabase) {
+    return sqlite.updateRobloxUsername(orderId, robloxUsername);
+  }
+  try {
+    const { error } = await supabase
+      .from('purchases')
+      .update({ roblox_username: robloxUsername })
+      .eq('order_id', orderId);
+    if (error) return sqlite.updateRobloxUsername(orderId, robloxUsername);
+    return true;
+  } catch (e) {
+    return sqlite.updateRobloxUsername(orderId, robloxUsername);
+  }
+}
+
 module.exports = {
   supabase,
   createPurchase,
   updatePurchaseStatus,
   getTopSpenders,
-  getAllPurchases
+  getAllPurchases,
+  getPurchaseById,
+  updateRobloxUsername
 };
