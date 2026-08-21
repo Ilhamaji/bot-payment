@@ -103,13 +103,18 @@ function buildAdminDashboardComponents(userId) {
 
 	const row3 = new ActionRowBuilder().addComponents(btnExportReport, btnManageAdmin, btnResetLB, btnRefresh);
 
-	// Row 4: Kelola Database
+	// Row 4: Kelola Server In-Game & Database
+	const btnGlobalPs = new ButtonBuilder()
+		.setCustomId('ap_btn_global_ps')
+		.setLabel('🌐 Link Private World')
+		.setStyle(ButtonStyle.Primary);
+
 	const btnDeleteDbRow = new ButtonBuilder()
 		.setCustomId('ap_btn_deletedb_row')
 		.setLabel('🗑️ Hapus Row Database')
 		.setStyle(ButtonStyle.Danger);
 
-	const row4 = new ActionRowBuilder().addComponents(btnDeleteDbRow);
+	const row4 = new ActionRowBuilder().addComponents(btnGlobalPs, btnDeleteDbRow);
 
 	return [row1, row2, row3, row4];
 }

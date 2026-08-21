@@ -665,13 +665,19 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			let psButton = null;
-			if (selectedItem && selectedItem.privateServerUrl && selectedItem.privateServerUrl.trim() !== '') {
-				notesDescription += `\n\n🌐 **LINK PRIVATE WORLD / SERVER TOKO:**\n[🌐 Klik Untuk Masuk Private World Toko](${selectedItem.privateServerUrl.trim()})`;
+			const { getGlobalPrivateServerUrl } = require('../services/panelManager');
+			const globalPsUrl = getGlobalPrivateServerUrl();
+			const activePsUrl = (selectedItem && selectedItem.usePrivateServer && globalPsUrl) 
+				? globalPsUrl.trim() 
+				: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
+
+			if (activePsUrl && activePsUrl !== '') {
+				notesDescription += `\n\n🌐 **LINK PRIVATE WORLD / SERVER TOKO:**\n[🌐 Klik Untuk Masuk Private World Toko](${activePsUrl})`;
 				try {
 					psButton = new ButtonBuilder()
 						.setLabel('🌐 Masuk Private World')
 						.setStyle(ButtonStyle.Link)
-						.setURL(selectedItem.privateServerUrl.trim());
+						.setURL(activePsUrl);
 				} catch (e) {}
 			}
 

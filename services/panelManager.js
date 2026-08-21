@@ -526,12 +526,39 @@ function buildCategorySubMenuEphemeral(items, catName, rangeFilter = null) {
     };
 }
 
+/**
+ * Mendapatkan URL Global Private World / Server toko
+ */
+function getGlobalPrivateServerUrl() {
+    const config = getPanelLocation();
+    return config.globalPrivateServerUrl || '';
+}
+
+/**
+ * Menyimpan URL Global Private World / Server toko
+ */
+function setGlobalPrivateServerUrl(url) {
+    try {
+        const configDir = path.dirname(configFile);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        const current = getPanelLocation();
+        current.globalPrivateServerUrl = url ? url.trim() : '';
+        fs.writeFileSync(configFile, JSON.stringify(current, null, 4), 'utf8');
+    } catch (err) {
+        console.error('Error saving global private server URL:', err);
+    }
+}
+
 module.exports = {
     savePanelLocation,
     saveCatalogLocation,
     saveLeaderboardLocation,
     resetLeaderboardTime,
     getPanelLocation,
+    getGlobalPrivateServerUrl,
+    setGlobalPrivateServerUrl,
     updateGlobalPanel,
     buildCatalogPanelComponents,
     buildCategorySubMenuEphemeral,

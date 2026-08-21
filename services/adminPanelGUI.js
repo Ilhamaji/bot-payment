@@ -115,12 +115,13 @@ function buildItemCategorySelectMenu(item) {
 
 function buildItemCheckboxMenu(item) {
 	const isHeld = item.available === false || item.hold === true;
+	const usePs = item.usePrivateServer === true;
 
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId(`ap_checkbox_opts_${item.id}`)
 		.setPlaceholder('☑️ Centang Opsi Setting (Multi-Select Checkbox)')
 		.setMinValues(0)
-		.setMaxValues(3)
+		.setMaxValues(4)
 		.addOptions(
 			new StringSelectMenuOptionBuilder()
 				.setLabel('Perlu Username Roblox')
@@ -134,6 +135,12 @@ function buildItemCheckboxMenu(item) {
 				.setDescription('Pembeli akan melewati panduan Cek Limit Roblox')
 				.setEmoji('🔍')
 				.setDefault(item.requireLimitCheck !== false),
+			new StringSelectMenuOptionBuilder()
+				.setLabel('Gunakan Private World Toko')
+				.setValue('req_ps')
+				.setDescription('Tampilkan Link Private World Toko saat pembeli membeli produk ini')
+				.setEmoji('🌐')
+				.setDefault(usePs),
 			new StringSelectMenuOptionBuilder()
 				.setLabel('Tahan Produk (Non-aktifkan Sementara)')
 				.setValue('req_hold')
@@ -151,14 +158,9 @@ function buildItemDoneButton(item) {
 		.setLabel('✏️ Edit Detail & Nama')
 		.setStyle(ButtonStyle.Primary);
 
-	const editPsBtn = new ButtonBuilder()
-		.setCustomId(`ap_btn_edit_ps_${item.id}`)
-		.setLabel('🌐 Private World')
-		.setStyle(ButtonStyle.Secondary);
-
 	const delBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_del_single_${item.id}`)
-		.setLabel('🗑️ Hapus Produk')
+		.setLabel('🗑️ Hapus Produk Ini')
 		.setStyle(ButtonStyle.Danger);
 
 	const doneBtn = new ButtonBuilder()
@@ -166,7 +168,7 @@ function buildItemDoneButton(item) {
 		.setLabel('✅ Selesai Edit')
 		.setStyle(ButtonStyle.Success);
 
-	return new ActionRowBuilder().addComponents(editPriceBtn, editPsBtn, delBtn, doneBtn);
+	return new ActionRowBuilder().addComponents(editPriceBtn, delBtn, doneBtn);
 }
 
 function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
@@ -176,17 +178,15 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
 	const isHeld = item.available === false || item.hold === true;
 	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
+	const usePsLabel = item.usePrivateServer === true ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
-	const psLinkLabel = (item.privateServerUrl && item.privateServerUrl.trim() !== '') 
-		? `[🌐 Klik Masuk Private World](${item.privateServerUrl.trim()})` 
-		: '`❌ Belum diatur (Kosong)`';
 
 	const embed = new EmbedBuilder()
 		.setTitle(`📦  ${actionTitle}: ${item.name}`)
 		.setColor(isHeld ? 0xED4245 : 0x2ECC71)
 		.setDescription(
 			`Berikut adalah detail & setting produk **${item.name}**:\n\n` +
-			`💡 *Klik **🌐 Private World** untuk mengatur link server in-game, ubah kategori/setting di bawah, lalu tekan **✅ Selesai Edit**!*`
+			`💡 *Klik **✏️ Edit Detail & Nama** untuk mengubah harga/nama, centang opsi di bawah, lalu tekan **✅ Selesai Edit**!*`
 		)
 		.addFields(
 			{ name: '🆔 ID Item', value: `\`${item.id}\``, inline: true },
@@ -194,8 +194,8 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 			{ name: '📁 Kategori', value: `${catEmoji} \`${item.category || 'General'}\``, inline: true },
 			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
 			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
+			{ name: '🌐 Private World Toko', value: usePsLabel, inline: true },
 			{ name: '⏸️ Status Pembelian', value: statusLabel, inline: true },
-			{ name: '🌐 Private World / Server', value: psLinkLabel, inline: false },
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
 		.setTimestamp()
@@ -693,6 +693,32 @@ async function handleAdminPanelInteraction(interaction, client) {
 			});
 		}
 
+		// Tombol Launch Modal Global Link Private World / Server (ap_btn_global_ps)
+		if (customId === 'ap_btn_global_ps') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat mengedit Link Private World.', flags: MessageFlags.Ephemeral });
+			}
+
+			const { getGlobalPrivateServerUrl } = require('./panelManager');
+			const currentPsUrl = getGlobalPrivateServerUrl();
+
+			const modal = new ModalBuilder()
+				.setCustomId('ap_modal_global_ps')
+				.setTitle('LINK PRIVATE WORLD / SERVER TOKO');
+
+			const psInput = new TextInputBuilder()
+				.setCustomId('global_ps_url')
+				.setLabel('URL LINK PRIVATE WORLD / SERVER (ROBLOX):')
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder('Cth: https://www.roblox.com/games/share?code=... (kosongkan jika tidak ada)')
+				.setValue(currentPsUrl || '')
+				.setRequired(false);
+
+			modal.addComponents(new ActionRowBuilder().addComponents(psInput));
+			await interaction.showModal(modal);
+			return true;
+		}
+
 		// Hapus Row Database Transaksi (ap_btn_deletedb_row)
 		if (customId === 'ap_btn_deletedb_row') {
 			if (!isAdmin(interaction.user.id)) {
@@ -870,6 +896,7 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const isHeld = selectedValues.includes('req_hold');
 			item.requireUsername = selectedValues.includes('req_username');
 			item.requireLimitCheck = selectedValues.includes('req_limit');
+			item.usePrivateServer = selectedValues.includes('req_ps');
 			item.available = !isHeld;
 			item.hold = isHeld;
 
@@ -1070,6 +1097,27 @@ async function handleAdminPanelInteraction(interaction, client) {
 					flags: MessageFlags.Ephemeral
 				});
 			}
+		}
+
+		// Submit Global Link Private World / Server
+		if (customId === 'ap_modal_global_ps') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat mengedit Link Private World.', flags: MessageFlags.Ephemeral });
+			}
+
+			const psUrl = interaction.fields.getTextInputValue('global_ps_url').trim();
+			const { setGlobalPrivateServerUrl } = require('./panelManager');
+
+			setGlobalPrivateServerUrl(psUrl);
+
+			const displayStatus = psUrl !== '' 
+				? `\n\n🌐 **URL Aktif saat ini:**\n\`${psUrl}\`` 
+				: '\n\n⚠️ **URL saat ini dikosongkan.**';
+
+			return interaction.reply({
+				content: `✅ **LINK PRIVATE WORLD TOKO BERHASIL DIPERBARUI!**${displayStatus}\n\n*Produk yang dicentang "🌐 Gunakan Private World Toko" akan menampilkan link ini ke pembeli.*`,
+				flags: MessageFlags.Ephemeral
+			});
 		}
 
 		// Submit Tambah Item
