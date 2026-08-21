@@ -55,7 +55,7 @@ client.once(Events.ClientReady, c => {
 
 	setInterval(() => {
 		checkAndCleanupExpiredTickets(client);
-	}, 15 * 60 * 1000);
+	}, 2 * 60 * 1000);
 });
 
 // Event: Message Create (Proof Photo Auto-Detectors)

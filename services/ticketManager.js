@@ -661,7 +661,7 @@ async function deleteAdminChannelMessagesForOrder(clientInstance, orderId, chann
 }
 
 async function checkAndCleanupExpiredTickets(clientInstance) {
-	const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+	const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 	const now = Date.now();
 
 	try {
@@ -676,18 +676,18 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 
 				if (isTicketChannel) {
 					const channelAge = now - channel.createdTimestamp;
-					if (channelAge >= TWENTY_FOUR_HOURS_MS) {
-						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>24 Jam): #${channel.name}`);
+					if (channelAge >= THIRTY_MINUTES_MS) {
+						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>30 Menit): #${channel.name}`);
 						const orderId = channel.name.toUpperCase();
 						await deleteAdminChannelMessagesForOrder(clientInstance, orderId);
 						await deleteTicketCreationMessage(orderId, channel.id);
 						try {
 							const timeoutEmbed = new EmbedBuilder()
-								.setTitle('⏰  BEBEY STORE — TIKET KADALUARSA (24 JAM)')
+								.setTitle('⏰  BEBEY STORE — TIKET KADALUARSA (30 MENIT)')
 								.setColor(0x7F8C8D)
 								.setDescription(
-									`> ⚠️ Tiket ini telah dibuka >24 jam tanpa transaksi.\n` +
-									`> Channel ini akan ditutup dan dihapus otomatis dalam **5 detik**.`
+									`> ⚠️ Tiket ini telah dibuka >30 menit tanpa penyelesaian transaksi.\n` +
+									`> Channel tiket ini ditutup dan dihapus secara otomatis dalam **5 detik**.`
 								)
 								.setTimestamp();
 
