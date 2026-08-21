@@ -6,7 +6,12 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 
 ## 🌟 Fitur Utama (Key Features)
 
-- 🎛️ **Admin Control Panel GUI (`/adminpanel`)**: Interactive Dashboard GUI khusus Admin untuk mengelola seluruh aspek toko (Item, Kategori, Panel Toko, Leaderboard, Export Excel All-Time, & Admin) secara visual via Tombol, Dropdown Menu, & Modal Form.
+- 🎛️ **Admin Control Panel GUI (`/adminpanel`)**: Interactive Dashboard GUI khusus Admin untuk mengelola seluruh aspek toko (Item, Kategori, Global Private World, Panel Toko, Leaderboard, Export Excel All-Time, & Admin) secara visual via Tombol, Dropdown Menu, & Modal Form.
+- 🌐 **Global & Category Private World / Server Link**: Admin dapat mengatur 1 URL Link Private Server Toko secara terpusat dari `/adminpanel`, dan mengaktifkan/mematikan akses Private World per **Kategori**. Produk in-game otomatis menampilkan link direct & panduan 5-langkah bertransaksi di server private.
+- 🛒 **Draf Keranjang Belanja & Sub-Kategori Dropdown**: Pembeli dapat menambah berbagai item dari kategori lain yang mengaktifkan mode keranjang sebelum membuat tiket.
+- ⏱️ **Ticket Auto-Cleanup 30 Menit**: Pembersihan otomatis tiket inaktif tanpa kelanjutan transaksi yang berumur lebih dari **30 menit** (di-scan berkala setiap 2 menit).
+- 🗑️ **Hapus Row Database Langsung dari Panel (`/adminpanel`)**: Admin dapat menghapus baris transaksi tertentu dari database SQLite / Supabase secara langsung via Form Modal dengan memasukkan Order ID.
+- 🛡️ **Keamanan Ketat & Anti-Exploit**: Otentikasi Admin terverifikasi di seluruh tombol/modal admin, validasi jumlah pesanan (anti-overflow), serta Prepared Statements SQLite untuk mencegah SQL Injection.
 - 📁 **Dropdown Select Menu Kategori & Checkbox Setting**: Pengelolaan kategori produk via dropdown otomatis + opsi centang checkbox (`Perlu Username`, `Cek Limit`, `⛔ Tahan Produk / Non-aktifkan`).
 - ⏸️ **Fitur Tahan Produk (Out of Stock / Maintenance)**: Admin dapat menahan produk agar tidak dapat dibeli untuk sementara *(Nama produk tercoret di katalog & otomatis ditolak jika dipilih)*.
 - 🛑 **Proteksi Presisi Validasi Roblox**: Memvalidasi Username Roblox pembeli secara langsung ke Database API Resmi Roblox **sebelum channel tiket dibuat**. Pembuatan tiket diblokir jika username tidak terdaftar.
@@ -21,7 +26,7 @@ Bot Discord Pembayaran & Manajemen Toko Otomatis 24/7 yang dilengkapi dengan Sis
 - 📊 **Laporan Excel All-Time & Bulanan Otomatis (`/exportreport`)**: 
   - **All-Time Export**: 1-Klik dari `/adminpanel` untuk mengunduh rekapitulasi seluruh transaksi penjualan toko sejak awal.
   - **Bulanan Otomatis**: Pengiriman otomatis rekap bulanan format Excel (`.xlsx`) setiap tanggal 1 jam 00:05 WIB ke channel `#laporan`.
-- 🗄️ **Dukungan Dual Database (Supabase Cloud & Local SQLite)**: Modul Supabase Cloud untuk produksi utama + folder `biznetgio/` native SQLite untuk deployment Biznet GIO VPS.
+- 🗄️ **Dukungan Dual Database (Supabase Cloud & Local SQLite)**: Modul Supabase Cloud untuk produksi utama + native SQLite engine untuk deployment Biznet GIO VPS.
 - 🏗️ **Arsitektur Modular & Ringkas**: `index.js` dirancang ringan (~110 baris) dengan handler terpisah (`buyerHandler.js`, `adminHandler.js`, `proofDetector.js`, `ticketManager.js`).
 
 ---
