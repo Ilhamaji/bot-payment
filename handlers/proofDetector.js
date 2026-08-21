@@ -64,7 +64,7 @@ async function handleProofMessageDetection(message, client) {
 				await executeOrderApproval(client, matchedOrderId, proofUrl, notes, message.author, targetMsg, null);
 
 				await message.reply({
-					content: `✅ **BUKTI PENGIRIMAN DI-APPROVE!** Foto screenshot bukti pengiriman item untuk order \`${matchedOrderId}\` telah berhasil dikirimkan ke channel tiket pembeli!`
+					content: `✅ **BUKTI PENGIRIMAN DI-APPROVE / DIPERBARUI!** Foto screenshot bukti pengiriman item untuk order \`${matchedOrderId}\` telah berhasil dikirimkan / diperbarui di channel tiket pembeli!`
 				});
 				return;
 			}

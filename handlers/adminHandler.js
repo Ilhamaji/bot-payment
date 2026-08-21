@@ -10,7 +10,7 @@ const {
 } = require('discord.js');
 const { isAdmin } = require('../services/admins');
 const { updatePurchaseStatus, supabase } = require('../services/supabase');
-const { executeOrderApproval, pendingAdminDeliveryProof } = require('../services/ticketManager');
+const { executeOrderApproval, pendingAdminDeliveryProof, adminInstructionInteractions } = require('../services/ticketManager');
 
 async function handleAdminInteraction(interaction, client) {
 	// 1. Button Actions (Admin Approve & Reject)
@@ -24,7 +24,7 @@ async function handleAdminInteraction(interaction, client) {
 
 			const orderId = customId.replace('admin_approve_', '');
 
-			return interaction.reply({
+			await interaction.reply({
 				content: 
 					`📸 **CARA KIRIM BUKTI PENGIRIMAN (ORDER: \`${orderId}\`):**\n\n` +
 					`1. **Tekan Balas (Reply)** pada pesan notifikasi transaksi di atas.\n` +
@@ -32,6 +32,9 @@ async function handleAdminInteraction(interaction, client) {
 					`3. Tekan Kirim. Bot akan otomatis mengirimkan foto bukti tersebut ke channel tiket pembeli!`,
 				flags: MessageFlags.Ephemeral
 			});
+
+			adminInstructionInteractions.set(orderId.toUpperCase(), interaction);
+			return true;
 		}
 
 		if (customId.startsWith('admin_reject_')) {

@@ -19,6 +19,7 @@ const ticketCreationInteractions = new Map();
 const buyerPendingProofs = new Map();
 const qrisMessages = new Map();
 const pendingAdminDeliveryProof = new Map();
+const adminInstructionInteractions = new Map();
 
 async function disableQrisButtonForOrder(orderId, channel) {
 	const cleanOrderId = orderId ? orderId.toUpperCase() : null;
@@ -66,6 +67,33 @@ async function deleteTicketCreationMessage(orderId, channelId) {
 async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '', adminUser = null, originalMessage = null, interactionToReply = null) {
 	await updatePurchaseStatus(orderId, 'fulfilled');
 	updateGlobalPanel(clientInstance);
+
+	const cleanOrderId = orderId.toUpperCase();
+
+	// 1. Hapus pesan instruksi cara kirim bukti pengiriman jika ada
+	if (adminInstructionInteractions.has(cleanOrderId)) {
+		try {
+			const instInteraction = adminInstructionInteractions.get(cleanOrderId);
+			await instInteraction.deleteReply();
+		} catch (e) {}
+		adminInstructionInteractions.delete(cleanOrderId);
+	}
+
+	// 2. Cari dan hapus pesan instruksi di Admin Channel jika berbentuk pesan biasa
+	const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
+	if (adminChannelId) {
+		try {
+			const adminChannel = await clientInstance.channels.fetch(adminChannelId);
+			if (adminChannel) {
+				const recentMsgs = await adminChannel.messages.fetch({ limit: 50 });
+				for (const [id, msg] of recentMsgs) {
+					if (msg.content && msg.content.includes('CARA KIRIM BUKTI PENGIRIMAN') && msg.content.includes(cleanOrderId)) {
+						try { await msg.delete(); } catch (e) {}
+					}
+				}
+			}
+		} catch (e) {}
+	}
 
 	if (originalMessage) {
 		try {
@@ -135,11 +163,27 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 
 				const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn, saveDmBtn);
 
-				await ticketChannel.send({ 
-					content: buyerMention ? `🔔 Halo ${buyerMention}, transaksi Anda telah disetujui!` : null, 
-					embeds: [approvedEmbed], 
-					components: [finishRow] 
-				});
+				// Cek apakah pesan approve sudah pernah dikirim di channel tiket ini (untuk fitur ganti bukti pengiriman)
+				const ticketMsgs = await ticketChannel.messages.fetch({ limit: 50 });
+				const existingApprovedMsg = ticketMsgs.find(m => 
+					m.embeds.length > 0 && 
+					m.embeds[0].title && 
+					m.embeds[0].title.includes('PEMBAYARAN DI-APPROVE')
+				);
+
+				if (existingApprovedMsg) {
+					await existingApprovedMsg.edit({
+						embeds: [approvedEmbed],
+						components: [finishRow]
+					});
+					console.log(`[PROOF UPDATE] Bukti pengiriman untuk ${orderId} berhasil diperbarui di channel tiket.`);
+				} else {
+					await ticketChannel.send({ 
+						content: buyerMention ? `🔔 Halo ${buyerMention}, transaksi Anda telah disetujui!` : null, 
+						embeds: [approvedEmbed], 
+						components: [finishRow] 
+					});
+				}
 			}
 		}
 	} catch (err) {
@@ -670,6 +714,7 @@ module.exports = {
 	qrisMessages,
 	cartMessages,
 	pendingAdminDeliveryProof,
+	adminInstructionInteractions,
 	disableQrisButtonForOrder,
 	deleteTicketCreationMessage,
 	executeOrderApproval,
