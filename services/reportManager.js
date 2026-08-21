@@ -21,28 +21,20 @@ async function fetchAllTransactions() {
 }
 
 /**
- * Mengambil data transaksi dari Supabase untuk bulan dan tahun spesifik
+ * Mengambil data transaksi untuk bulan dan tahun spesifik (SQLite / Supabase)
  */
 async function fetchMonthlyTransactions(year, month) {
-    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0)).toISOString();
-    const endDate = new Date(Date.UTC(year, month, 1, 0, 0, 0)).toISOString();
-
     try {
-        const { data, error } = await supabase
-            .from('purchases')
-            .select('*')
-            .gte('created_at', startDate)
-            .lt('created_at', endDate)
-            .eq('status', 'fulfilled')
-            .order('created_at', { ascending: true });
+        const allData = await getAllPurchases();
+        if (!allData || !Array.isArray(allData)) return [];
 
-        if (error) {
-            console.error('Error fetching monthly purchases from Supabase:', error);
-            return [];
-        }
-        return data || [];
+        return allData.filter(item => {
+            if (item.status !== 'fulfilled') return false;
+            const date = new Date(item.created_at || item.createdTimestamp || Date.now());
+            return date.getUTCFullYear() === year && (date.getUTCMonth() + 1) === month;
+        });
     } catch (err) {
-        console.error('Error executing Supabase monthly query:', err);
+        console.error('Error fetching monthly purchases:', err);
         return [];
     }
 }
