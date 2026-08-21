@@ -313,7 +313,9 @@ function addItemToCart(orderId, item, quantity = 1) {
 			emoji: item.emoji || '📦',
 			category: item.category,
 			quantity: itemQty,
-			subtotal: Number(item.price || 0) * itemQty
+			subtotal: Number(item.price || 0) * itemQty,
+			privateServerUrl: item.privateServerUrl,
+			usePrivateServer: item.usePrivateServer
 		});
 	}
 
@@ -324,7 +326,7 @@ function addItemToCart(orderId, item, quantity = 1) {
 function buildCartEmbedAndComponents(orderId) {
 	const cleanOrderId = orderId.toUpperCase();
 	const cart = activeCarts.get(cleanOrderId);
-	if (!cart) return null;
+	if (!cart || cart.items.length === 0) return null;
 
 	let subtotalAll = 0;
 	let itemsListStr = '';
@@ -339,11 +341,38 @@ function buildCartEmbedAndComponents(orderId) {
 		? `👤 **Username Roblox:** \`${cart.robloxUsername}\`\n\n` 
 		: '';
 
+	const { getGlobalPrivateServerUrl } = require('./panelManager');
+	const globalPsUrl = getGlobalPrivateServerUrl();
+
+	let activePsUrl = null;
+	for (const item of cart.items) {
+		if (item.usePrivateServer && globalPsUrl && globalPsUrl.trim() !== '') {
+			activePsUrl = globalPsUrl.trim();
+			break;
+		} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {
+			activePsUrl = item.privateServerUrl.trim();
+			break;
+		}
+	}
+
+	let psLine = '';
+	let btnPs = null;
+	if (activePsUrl) {
+		psLine = `🌐 **LINK PRIVATE WORLD TOKO:**\n[🌐 Klik Untuk Masuk Private World Toko](${activePsUrl})\n\n`;
+		try {
+			btnPs = new ButtonBuilder()
+				.setLabel('🌐 Masuk Private World')
+				.setStyle(ButtonStyle.Link)
+				.setURL(activePsUrl);
+		} catch (e) {}
+	}
+
 	const cartDescription = 
 		`Halo <@${cart.userId}>! Berikut adalah **Detail Pesanan** kamu:\n\n` +
 		userLine +
 		`📦 **DAFTAR PRODUK PESANAN:**\n` +
 		itemsListStr +
+		psLine +
 		`🆔 **Order ID:** \`${cart.orderId}\`\n` +
 		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**`;
 
@@ -364,7 +393,9 @@ function buildCartEmbedAndComponents(orderId) {
 		.setLabel('🔒 Batal / Tutup Tiket')
 		.setStyle(ButtonStyle.Secondary);
 
-	const row = new ActionRowBuilder().addComponents(btnSos, btnClose);
+	const row = new ActionRowBuilder();
+	if (btnPs) row.addComponents(btnPs);
+	row.addComponents(btnSos, btnClose);
 
 	return { embeds: [cartEmbed], components: [row] };
 }
