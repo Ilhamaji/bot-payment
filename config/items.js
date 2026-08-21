@@ -1,5 +1,5 @@
 /**
- * DATAKATALOG ITEM BEBEY STORE
+ * DATA KATALOG ITEM BEBEY STORE
  */
 module.exports = [
     // 1. Skin Fish It
@@ -46,7 +46,7 @@ module.exports = [
     { "id": "skin_void_guitar", "name": "Void Guitar", "price": 45000, "category": "Skin Fish It", "emoji": "🗡️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "skin_void_kraken", "name": "Void Kraken", "price": 10000, "category": "Skin Fish It", "emoji": "🗡️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "skin_world_tour", "name": "World Tour", "price": 42000, "category": "Skin Fish It", "emoji": "🗡️", "requireUsername": true, "requireLimitCheck": false },
-    { "id": "skin_divine_blade", "name": "Divine Blade", "price": 50000, "category": "Skin Fish It", "emoji": "🗡️", "requireUsername": true, "requireLimitCheck": false },
+    { "id": "skin_divine_blade", "name": "Divine Blade", "price": 7000, "category": "Skin Fish It", "emoji": "🗡️", "requireUsername": true, "requireLimitCheck": false },
 
     // 2. Pet Fish It
     { "id": "pet_axolot", "name": "Axolot", "price": 130000, "category": "Pet Fish It", "emoji": "🐾", "requireUsername": true, "requireLimitCheck": false },
@@ -91,6 +91,7 @@ module.exports = [
     { "id": "gp_sell_anywhere", "name": "Sell Anywhere", "price": 29000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_small_luck", "name": "Small Luck", "price": 6000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_vip", "name": "VIP", "price": 45000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
+    { "id": "gp_emote_duo_dream", "name": "Emote Duo Dream Drift", "price": 5000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_boost_x8_6h", "name": "Boost x8 6 Jam", "price": 120000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_boost_x8_12h", "name": "Boost x8 12 Jam", "price": 170000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_boost_x8_24h", "name": "Boost x8 24 Jam", "price": 276000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
