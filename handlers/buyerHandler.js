@@ -709,7 +709,7 @@ async function handleBuyerInteraction(interaction, client) {
 				`Baca catatan singkat ini dulu ya sebelum bayar:\n\n` +
 				`1️⃣ **Cek Username**: Pastikan username & display name Roblox kamu sudah benar.\n` +
 				`2️⃣ **Umur Akun**: Kalau umur akun kamu dibawah 18+, pastikan tidak dikunci email orang tua.\n` +
-				`3️⃣ **Status Limit**: Pastikan akun kamu tidak kena limit Robux.\n` +
+				`3️⃣ **Status Limit**: Pastikan akun kamu tidak kena limit Robux (jika membeli Robux).\n` +
 				`4️⃣ **Proses**: Setelah Robux/item terkirim, pesanan tidak bisa dibatalkan.\n` +
 				`5️⃣ **Waktu Proses**: Proses kirim butuh waktu **15 menit – 4 jam** (maksimal 4 jam).\n\n` +
 				`Kalau kamu sudah paham, klik **Saya Paham & Setuju**!`;
