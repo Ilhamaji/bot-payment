@@ -15,21 +15,196 @@ const {
 	ticketCreationInteractions, 
 	buyerPendingProofs, 
 	qrisMessages, 
+	cartMessages,
 	disableQrisButtonForOrder, 
 	deleteTicketCreationMessage, 
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
-	deleteAdminChannelMessagesForOrder 
+	deleteAdminChannelMessagesForOrder,
+	getCart,
+	addItemToCart,
+	buildCartEmbedAndComponents,
+	buildQrisPaymentEmbedForCart
 } = require('../services/ticketManager');
 const { validateRobloxUsername, getRobloxAvatarHeadshot } = require('../services/roblox');
 const { supabase } = require('../services/supabase');
 const { isAdmin } = require('../services/admins');
-const { buildCategorySubMenuEphemeral } = require('../services/panelManager');
+
+function getPanelManager() {
+	return require('../services/panelManager');
+}
+
+const draftCarts = new Map();
+
+function getDraftCart(userId) {
+	return draftCarts.get(userId) || null;
+}
+
+function initDraftCart(userId, robloxCheck, item, quantity = 1) {
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
+	const initialItem = {
+		id: item.id,
+		name: item.name,
+		price: Number(item.price || 0),
+		emoji: item.emoji || '📦',
+		category: item.category,
+		quantity: itemQty,
+		subtotal: Number(item.price || 0) * itemQty,
+		itemObj: item
+	};
+
+	const draft = {
+		userId: userId,
+		robloxData: robloxCheck,
+		robloxUsername: (typeof robloxCheck === 'object' && robloxCheck !== null) ? robloxCheck.username : String(robloxCheck),
+		items: [initialItem]
+	};
+
+	draftCarts.set(userId, draft);
+	return draft;
+}
+
+function addItemToDraftCart(userId, item, quantity = 1) {
+	const draft = draftCarts.get(userId);
+	if (!draft) return null;
+
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
+	const existingIndex = draft.items.findIndex(i => i.id === item.id);
+
+	if (existingIndex >= 0) {
+		draft.items[existingIndex].quantity += itemQty;
+		draft.items[existingIndex].subtotal = draft.items[existingIndex].price * draft.items[existingIndex].quantity;
+	} else {
+		draft.items.push({
+			id: item.id,
+			name: item.name,
+			price: Number(item.price || 0),
+			emoji: item.emoji || '📦',
+			category: item.category,
+			quantity: itemQty,
+			subtotal: Number(item.price || 0) * itemQty,
+			itemObj: item
+		});
+	}
+
+	draftCarts.set(userId, draft);
+	return draft;
+}
+
+function removeItemFromDraftCart(userId, itemId, reduceQty = 1) {
+	const draft = draftCarts.get(userId);
+	if (!draft) return null;
+
+	const index = draft.items.findIndex(i => i.id === itemId);
+	if (index >= 0) {
+		const item = draft.items[index];
+		if (item.quantity > reduceQty) {
+			item.quantity -= reduceQty;
+			item.subtotal = item.price * item.quantity;
+		} else {
+			draft.items.splice(index, 1);
+		}
+	}
+
+	draftCarts.set(userId, draft);
+	return draft;
+}
+
+function buildPreTicketCartEmbed(userId) {
+	const draft = draftCarts.get(userId);
+	if (!draft || draft.items.length === 0) return null;
+
+	let subtotalAll = 0;
+	let itemsListStr = '';
+
+	draft.items.forEach((item, index) => {
+		subtotalAll += item.subtotal;
+		itemsListStr += `**${index + 1}.** ${item.emoji} **${item.name}**\n` +
+						`└ \`${item.quantity} Pcs\` @ Rp ${item.price.toLocaleString('id-ID')} = **Rp ${item.subtotal.toLocaleString('id-ID')}**\n\n`;
+	});
+
+	const userLine = (draft.robloxUsername && draft.robloxUsername !== 'Tidak Perlu') 
+		? `👤 **Username Roblox:** \`${draft.robloxUsername}\`\n\n` 
+		: '';
+
+	const description = 
+		`🛍️ **DRAF KERANJANG BELANJA KAMU (SEBELUM BIKIN TIKET):**\n\n` +
+		userLine +
+		itemsListStr +
+		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**\n\n` +
+		`💡 *Ingin memasukkan item lain? Klik **"➕ Tambah Item Lain"**.\n` +
+		`Ingin menghapus/mengurangi item? Klik **"🗑️ Hapus/Kurangi Item"**.\n` +
+		`Kalau sudah pas, klik **"🚀 Buat Tiket Sekarang"**!*`;
+
+	const embed = new EmbedBuilder()
+		.setTitle(`🛒  BEBEY STORE — DRAF KERANJANG BELANJA`)
+		.setColor(0x3498DB)
+		.setDescription(description.trim())
+		.setTimestamp()
+		.setFooter({ text: '💖 Bebey Store Pre-Ticket Cart' });
+
+	const btnAddItem = new ButtonBuilder()
+		.setCustomId('preticket_add_item')
+		.setLabel('➕ Tambah Item Lain')
+		.setStyle(ButtonStyle.Primary);
+
+	const btnRemoveItem = new ButtonBuilder()
+		.setCustomId('preticket_remove_item')
+		.setLabel('🗑️ Hapus / Kurangi Item')
+		.setStyle(ButtonStyle.Danger);
+
+	const btnCreateTicket = new ButtonBuilder()
+		.setCustomId('preticket_create_ticket')
+		.setLabel('🚀 Buat Tiket Sekarang')
+		.setStyle(ButtonStyle.Success);
+
+	const btnCancel = new ButtonBuilder()
+		.setCustomId('preticket_cancel')
+		.setLabel('❌ Batal')
+		.setStyle(ButtonStyle.Secondary);
+
+	const row1 = new ActionRowBuilder().addComponents(btnAddItem, btnRemoveItem, btnCreateTicket);
+	const row2 = new ActionRowBuilder().addComponents(btnCancel);
+
+	return { embeds: [embed], components: [row1, row2] };
+}
+
+async function refreshTicketCartAndQris(orderId) {
+	const cleanOrderId = orderId.toUpperCase();
+	const cartData = buildCartEmbedAndComponents(cleanOrderId);
+	const cartMsg = cartMessages.get(cleanOrderId);
+
+	if (cartMsg && cartData) {
+		try {
+			await cartMsg.edit(cartData);
+		} catch (e) {}
+	}
+
+	const qrisData = buildQrisPaymentEmbedForCart(cleanOrderId);
+	const qrisMsg = qrisMessages.get(cleanOrderId);
+
+	if (qrisData) {
+		await supabase.from('purchases').update({
+			item_name: qrisData.itemSummaryName,
+			total_price: qrisData.totalAmount
+		}).eq('order_id', cleanOrderId);
+
+		if (qrisMsg) {
+			try {
+				await qrisMsg.edit({
+					embeds: qrisData.embeds,
+					components: qrisData.components,
+					files: qrisData.files || []
+				});
+			} catch (e) {}
+		}
+	}
+}
 
 async function handleBuyerInteraction(interaction, client) {
 	// 1. Dropdown Select Menu (Pilih Item Produk)
 	if (interaction.isStringSelectMenu()) {
-		if (interaction.customId === 'select_shop_item') {
+		if (interaction.customId.startsWith('select_shop_item')) {
 			delete require.cache[require.resolve('../config/items')];
 			const currentItems = require('../config/items');
 
@@ -47,8 +222,27 @@ async function handleBuyerInteraction(interaction, client) {
 				});
 			}
 
+			const allowQuantity = getPanelManager().isCategoryQuantityAllowed(selectedItem.category);
+
 			if (selectedItem.requireUsername === false) {
-				await createTicketChannel(interaction, selectedItem, 'Tidak Perlu', client);
+				if (allowQuantity) {
+					const modal = new ModalBuilder()
+						.setCustomId(`modal_buy_${selectedItem.id}`)
+						.setTitle(`FORM PEMBELIAN: ${selectedItem.name.substring(0, 25)}`);
+
+					const qtyInput = new TextInputBuilder()
+						.setCustomId('item_quantity')
+						.setLabel("JUMLAH / QUANTITY (Pcs):")
+						.setStyle(TextInputStyle.Short)
+						.setPlaceholder("Contoh: 1, 2, 5, 10 (Default: 1)")
+						.setValue("1")
+						.setRequired(true);
+
+					modal.addComponents(new ActionRowBuilder().addComponents(qtyInput));
+					return interaction.showModal(modal);
+				}
+
+				await createTicketChannel(interaction, selectedItem, 'Tidak Perlu', client, 1);
 
 				const prevInteraction = userEphemeralInteractions.get(interaction.user.id);
 				if (prevInteraction) {
@@ -73,10 +267,129 @@ async function handleBuyerInteraction(interaction, client) {
 				.setMinLength(3)
 				.setMaxLength(30);
 
-			const actionRow = new ActionRowBuilder().addComponents(usernameInput);
-			modal.addComponents(actionRow);
+			if (allowQuantity) {
+				const qtyInput = new TextInputBuilder()
+					.setCustomId('item_quantity')
+					.setLabel("JUMLAH / QUANTITY (Pcs):")
+					.setStyle(TextInputStyle.Short)
+					.setPlaceholder("Contoh: 1, 2, 5, 10 (Default: 1)")
+					.setValue("1")
+					.setRequired(true);
+
+				modal.addComponents(
+					new ActionRowBuilder().addComponents(usernameInput),
+					new ActionRowBuilder().addComponents(qtyInput)
+				);
+			} else {
+				modal.addComponents(new ActionRowBuilder().addComponents(usernameInput));
+			}
 
 			return interaction.showModal(modal);
+		}
+
+		// Dropdown Pilih Item Tambahan Untuk Keranjang Belanja
+		if (interaction.customId.startsWith('cart_select_added_item_')) {
+			const orderId = interaction.customId.replace('cart_select_added_item_', '');
+			const itemId = interaction.values[0];
+
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+			const selectedItem = currentItems.find(i => i.id === itemId);
+
+			if (!selectedItem) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			const allowQuantity = getPanelManager().isCategoryQuantityAllowed(selectedItem.category);
+
+			if (allowQuantity) {
+				const modal = new ModalBuilder()
+					.setCustomId(`cart_modal_qty_${orderId}_${selectedItem.id}`)
+					.setTitle(`Jumlah: ${selectedItem.name.substring(0, 20)}`);
+
+				const qtyInput = new TextInputBuilder()
+					.setCustomId('cart_qty_input')
+					.setLabel('JUMLAH / QUANTITY (Pcs)')
+					.setStyle(TextInputStyle.Short)
+					.setPlaceholder('Contoh: 1, 3, 5...')
+					.setValue('1')
+					.setRequired(true);
+
+				const firstActionRow = new ActionRowBuilder().addComponents(qtyInput);
+				modal.addComponents(firstActionRow);
+
+				await interaction.showModal(modal);
+				return;
+			} else {
+				addItemToCart(orderId, selectedItem, 1);
+				await refreshTicketCartAndQris(orderId);
+
+				return interaction.reply({
+					content: `✅ **${selectedItem.emoji || '📦'} ${selectedItem.name} (1 Pcs)** berhasil ditambahkan ke keranjang belanja!`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+		}
+
+		// Dropdown Pilih Item Tambahan Untuk Pre-Ticket Cart
+		if (interaction.customId === 'preticket_select_added_item') {
+			const itemId = interaction.values[0];
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+			const selectedItem = currentItems.find(i => i.id === itemId);
+
+			if (!selectedItem) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			const allowQuantity = getPanelManager().isCategoryQuantityAllowed(selectedItem.category);
+
+			if (allowQuantity) {
+				const modal = new ModalBuilder()
+					.setCustomId(`preticket_modal_qty_${selectedItem.id}`)
+					.setTitle(`Jumlah: ${selectedItem.name.substring(0, 20)}`);
+
+				const qtyInput = new TextInputBuilder()
+					.setCustomId('preticket_qty_input')
+					.setLabel('JUMLAH / QUANTITY (Pcs)')
+					.setStyle(TextInputStyle.Short)
+					.setPlaceholder('Contoh: 1, 3, 5...')
+					.setValue('1')
+					.setRequired(true);
+
+				modal.addComponents(new ActionRowBuilder().addComponents(qtyInput));
+				return interaction.showModal(modal);
+			} else {
+				addItemToDraftCart(interaction.user.id, selectedItem, 1);
+				const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+
+				return interaction.update({
+					content: null,
+					embeds: preTicketData.embeds,
+					components: preTicketData.components
+				});
+			}
+		}
+
+		// Dropdown Pilih Item Untuk Dihapus / Dikurangi Dari Pre-Ticket Cart
+		if (interaction.customId === 'preticket_select_remove_item') {
+			const itemId = interaction.values[0];
+			removeItemFromDraftCart(interaction.user.id, itemId, 1);
+
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+			if (preTicketData) {
+				return interaction.update({
+					content: null,
+					embeds: preTicketData.embeds,
+					components: preTicketData.components
+				});
+			} else {
+				return interaction.update({
+					content: 'ℹ️ Semua item telah dihapus dari keranjang. Draf keranjang kosong.',
+					embeds: [],
+					components: []
+				});
+			}
 		}
 	}
 
@@ -88,25 +401,43 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const itemId = interaction.customId.replace('modal_buy_', '');
 			const selectedItem = currentItems.find(i => i.id === itemId);
-			let robloxUsername = interaction.fields.getTextInputValue('roblox_username').trim();
 
 			if (!selectedItem) {
 				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
 			}
 
+			let robloxUsername = 'Tidak Perlu';
+			try {
+				robloxUsername = interaction.fields.getTextInputValue('roblox_username').trim();
+			} catch (e) {}
+
+			let rawQty = '1';
+			try {
+				rawQty = interaction.fields.getTextInputValue('item_quantity').trim();
+			} catch (e) {}
+
+			const parsedQty = parseInt(rawQty, 10);
+			const quantity = (!isNaN(parsedQty) && parsedQty >= 1) ? Math.min(parsedQty, 9999) : 1;
+
 			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-			const robloxCheck = await validateRobloxUsername(robloxUsername);
+			let robloxCheck = 'Tidak Perlu';
+			if (selectedItem.requireUsername !== false && robloxUsername !== 'Tidak Perlu') {
+				robloxCheck = await validateRobloxUsername(robloxUsername);
 
-			if (!robloxCheck.valid || !robloxCheck.found) {
-				return interaction.editReply({
-					content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n` +
-						`> Username Roblox \`${robloxUsername}\` tidak terdaftar di database resmi Roblox.\n` +
-						`> Silakan periksa kembali ejaan Username Anda dan coba pilih produk lagi (langsung username, tanpa simbol @).`
-				});
+				if (!robloxCheck.valid || !robloxCheck.found) {
+					return interaction.editReply({
+						content: `❌ **USERNAME ROBLOX TIDAK DITEMUKAN!**\n` +
+							`> Username Roblox \`${robloxUsername}\` tidak terdaftar di database resmi Roblox.\n` +
+							`> Silakan periksa kembali ejaan Username Anda dan coba pilih produk lagi (langsung username, tanpa simbol @).`
+					});
+				}
 			}
 
-			await createTicketChannel(interaction, selectedItem, robloxCheck, client);
+			initDraftCart(interaction.user.id, robloxCheck, selectedItem, quantity);
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+
+			await interaction.editReply(preTicketData);
 
 			const prevInteraction = userEphemeralInteractions.get(interaction.user.id);
 			if (prevInteraction) {
@@ -116,6 +447,51 @@ async function handleBuyerInteraction(interaction, client) {
 				userEphemeralInteractions.delete(interaction.user.id);
 			}
 			return;
+		}
+
+		// Modal Jumlah Item Tambahan Keranjang Belanja
+		if (interaction.customId.startsWith('cart_modal_qty_')) {
+			const parts = interaction.customId.replace('cart_modal_qty_', '').split('_');
+			const orderId = parts[0];
+			const itemId = parts.slice(1).join('_');
+			const rawQty = interaction.fields.getTextInputValue('cart_qty_input');
+			const qty = Math.max(1, parseInt(rawQty) || 1);
+
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+			const selectedItem = currentItems.find(i => i.id === itemId);
+
+			if (selectedItem) {
+				addItemToCart(orderId, selectedItem, qty);
+				await refreshTicketCartAndQris(orderId);
+
+				return interaction.reply({
+					content: `✅ **${selectedItem.emoji || '📦'} ${selectedItem.name} (x${qty} Pcs)** berhasil ditambahkan ke keranjang belanja!`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+		}
+
+		// Modal Jumlah Item Tambahan Pre-Ticket Cart
+		if (interaction.customId.startsWith('preticket_modal_qty_')) {
+			const itemId = interaction.customId.replace('preticket_modal_qty_', '');
+			const rawQty = interaction.fields.getTextInputValue('preticket_qty_input');
+			const qty = Math.max(1, parseInt(rawQty) || 1);
+
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+			const selectedItem = currentItems.find(i => i.id === itemId);
+
+			if (selectedItem) {
+				addItemToDraftCart(interaction.user.id, selectedItem, qty);
+				const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+
+				return interaction.update({
+					content: null,
+					embeds: preTicketData.embeds,
+					components: preTicketData.components
+				});
+			}
 		}
 
 		if (interaction.customId.startsWith('modal_rechange_roblox_')) {
@@ -262,31 +638,48 @@ async function handleBuyerInteraction(interaction, client) {
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
 			}
 
-			const isRobuxCategory = selectedItem.category && selectedItem.category.toLowerCase().includes('robux');
-			const requireLimitCheck = selectedItem.requireLimitCheck !== undefined ? selectedItem.requireLimitCheck : isRobuxCategory;
+			const cart = getCart(orderId);
+			let requireLimitCheck = false;
+
+			if (cart && cart.items && cart.items.length > 0) {
+				requireLimitCheck = cart.items.some(item => {
+					const cat = (item.category || item.itemObj?.category || '').toLowerCase();
+					return item.requireLimitCheck === true || (item.itemObj && item.itemObj.requireLimitCheck === true) || cat.includes('robux');
+				});
+			} else {
+				const isRobuxCategory = selectedItem.category && selectedItem.category.toLowerCase().includes('robux');
+				requireLimitCheck = selectedItem.requireLimitCheck !== undefined ? selectedItem.requireLimitCheck : isRobuxCategory;
+			}
 
 			if (!requireLimitCheck) {
-				const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
-				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
-
-				const qrisMsg = await interaction.channel.send({
-					embeds: qrisCard.embeds,
-					components: qrisCard.components
-				});
+				const qrisData = buildQrisPaymentEmbedForCart(orderId);
+				let qrisMsg;
+				if (qrisData) {
+					qrisMsg = await interaction.channel.send({
+						embeds: qrisData.embeds,
+						components: qrisData.components,
+						files: qrisData.files || []
+					});
+				} else {
+					const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
+					const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
+					qrisMsg = await interaction.channel.send(qrisCard);
+				}
 				qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 				return;
 			}
 
 			const limitDescription = 
-				`Halo **${interaction.user}**, sebelum bayar, cek dulu apakah akun Roblox kamu kena limit atau tidak ya. 🙏\n\n` +
-				`Ini supaya Robux kamu masuk penuh dan tidak nyangkut.\n\n` +
-				`Kalau bingung cara ceknya, klik tombol **Cara Cek Limit** di bawah!`;
+				`${interaction.user} sebelum lanjut bayar, kakak perlu **cek limit akun** dulu ya. 🙏\n\n` +
+				`Ini biar Robux-nya masuk penuh dan gak ada yang nyangkut gara-gara limit.\n\n` +
+				`📖 Ada 2 tutorial di tombol bawah: **cara cek limit akun** & **cara cek sisa limit**.\n\n` +
+				`Kalau udah dicek, pilih salah satu tombol di bawah 👇`;
 
 			const limitEmbed = new EmbedBuilder()
-				.setTitle('🔍  CEK LIMIT AKUN DULU YUK!')
+				.setTitle('🔍  Cek Limit Akun Dulu Yuk!')
 				.setColor(0xF1C40F)
 				.setDescription(limitDescription.trim())
-				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+				.setFooter({ text: `💖 BEBEY STORE • ${orderId}` });
 
 			const notLimitBtn = new ButtonBuilder()
 				.setCustomId(`limit_ok_${orderId}`)
@@ -300,11 +693,16 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const guideBtn = new ButtonBuilder()
 				.setCustomId(`limit_guide_${orderId}`)
-				.setLabel('📖 Cara Cek Limit')
+				.setLabel('📖 Cara Cek Limit Akun')
+				.setStyle(ButtonStyle.Secondary);
+
+			const remainingGuideBtn = new ButtonBuilder()
+				.setCustomId(`remaining_limit_guide_${orderId}`)
+				.setLabel('📊 Cara Cek Sisa Limit')
 				.setStyle(ButtonStyle.Secondary);
 
 			const limitRow1 = new ActionRowBuilder().addComponents(notLimitBtn, isLimitBtn);
-			const limitRow2 = new ActionRowBuilder().addComponents(guideBtn);
+			const limitRow2 = new ActionRowBuilder().addComponents(guideBtn, remainingGuideBtn);
 
 			await interaction.channel.send({ embeds: [limitEmbed], components: [limitRow1, limitRow2] });
 			return;
@@ -321,15 +719,15 @@ async function handleBuyerInteraction(interaction, client) {
 			await interaction.update({ embeds: [updatedLimitEmbed], components: [] });
 
 			const safetyDescription = 
-				`Pastikan sekali lagi akun kamu tidak limit ya.\n\n` +
-				`📌 **Ingat**: Robux yang sudah dikirim tapi nyangkut gara-gara akun kamu limit **tidak bisa dikembalikan / refund**.\n\n` +
-				`Yakin mau lanjut bayar sekarang?`;
+				`Kalau ternyata masih limit, Robux-nya bisa nyangkut dan gak masuk penuh.\n\n` +
+				`Robux yang udah kekirim **gak bisa ditarik balik** — jadi yang nyangkut **gak bisa direfund**.\n\n` +
+				`Cek sekali lagi ya sebelum bayar 🙏`;
 
 			const safetyEmbed = new EmbedBuilder()
-				.setTitle('⚠️  YAKIN AKUNNYA AMAN KAK?')
+				.setTitle('⚠️  Yakin Akunnya Aman Kak?')
 				.setColor(0xF1C40F)
 				.setDescription(safetyDescription.trim())
-				.setFooter({ text: `💖 Bebey Store • ${orderId}` });
+				.setFooter({ text: `💖 BEBEY STORE • ${orderId}` });
 
 			const confirmSafetyBtn = new ButtonBuilder()
 				.setCustomId(`confirm_safety_${orderId}`)
@@ -338,7 +736,7 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const checkAgainBtn = new ButtonBuilder()
 				.setCustomId(`check_again_${orderId}`)
-				.setLabel('🔄 Cek Dulu Deh')
+				.setLabel('❌ Cek Dulu')
 				.setStyle(ButtonStyle.Secondary);
 
 			const safetyRow = new ActionRowBuilder().addComponents(confirmSafetyBtn, checkAgainBtn);
@@ -347,7 +745,19 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
-		// Confirm Safety Button
+		// Check Again Button ("❌ Cek Dulu")
+		if (customId.startsWith('check_again_')) {
+			await interaction.reply({
+				content: 
+					`🔍 **SILAKAN CEK KEMBALI AKUN ROBLOX KAMU!**\n` +
+					`> Pastikan sekali lagi akun kamu tidak limit ya.\n` +
+					`> Jika sudah benar-benar yakin bebas limit, tekan tombol **"✅ Yakin, Lanjut Bayar"** pada kartu di atas!`,
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
+		// Confirm Safety Button ("✅ Yakin, Lanjut Bayar")
 		if (customId.startsWith('confirm_safety_')) {
 			const orderId = customId.replace('confirm_safety_', '');
 
@@ -373,13 +783,19 @@ async function handleBuyerInteraction(interaction, client) {
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
 			}
 
-			const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
-			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
-
-			const qrisMsg = await interaction.channel.send({
-				embeds: qrisCard.embeds,
-				components: qrisCard.components
-			});
+			const qrisData = buildQrisPaymentEmbedForCart(orderId);
+			let qrisMsg;
+			if (qrisData) {
+				qrisMsg = await interaction.channel.send({
+					embeds: qrisData.embeds,
+					components: qrisData.components,
+					files: qrisData.files || []
+				});
+			} else {
+				const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
+				const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
+				qrisMsg = await interaction.channel.send(qrisCard);
+			}
 			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 			return;
 		}
@@ -571,6 +987,28 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
+		// Remaining Limit Guide Button ("📊 Cara Cek Sisa Limit")
+		if (customId.startsWith('remaining_limit_guide_')) {
+			const remainingGuideEmbed = new EmbedBuilder()
+				.setTitle('📊  PANDUAN CEK SISA LIMIT ROBUX')
+				.setColor(0x5865F2)
+				.setDescription(
+					`Berikut adalah langkah-langkah mengecek sisa limit Robux akun kamu:\n\n` +
+					`1️⃣ Buka browser dan login ke akun Roblox kamu di **roblox.com**.\n` +
+					`2️⃣ Masuk ke menu **My Transactions** (Transaksi & Pengeluaran Robux).\n` +
+					`3️⃣ Periksa pada bagian **Pending Robux** atau batas transaksi bulanan akun kamu.\n` +
+					`4️⃣ Jika kuota penerimaan Robux kamu masih cukup, maka Robux bisa terkirim tanpa kendala!\n\n` +
+					`> 💡 *Jika sisa limit masih aman, silakan tekan tombol **"✅ Tidak Limit"** pada kartu di atas!*`
+				)
+				.setFooter({ text: '⚡ Bebey Store Official • Tutorial Center' });
+
+			await interaction.reply({
+				embeds: [remainingGuideEmbed],
+				flags: MessageFlags.Ephemeral
+			});
+			return;
+		}
+
 		// Check Again Button ("Cek Dulu Deh")
 		if (customId.startsWith('check_again_')) {
 			const guideEmbed = new EmbedBuilder()
@@ -593,6 +1031,128 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
+		// Pre-Ticket Cart Buttons
+		if (customId === 'preticket_add_item') {
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+
+			const selectOptions = currentItems.slice(0, 25).map(item => {
+				const isHeld = item.available === false || item.hold === true;
+				return new StringSelectMenuOptionBuilder()
+					.setLabel(isHeld ? `⛔ ${item.name} (Ditahan)` : `${item.name}`)
+					.setValue(item.id)
+					.setDescription(`Rp ${item.price.toLocaleString('id-ID')} • ${item.category}`);
+			});
+
+			const selectMenu = new StringSelectMenuBuilder()
+				.setCustomId('preticket_select_added_item')
+				.setPlaceholder('➕ Pilih Produk Lain Untuk Ditambahkan...')
+				.addOptions(selectOptions);
+
+			const btnCancelAdd = new ButtonBuilder()
+				.setCustomId('preticket_cancel_add_item')
+				.setLabel('↩️ Kembali ke Keranjang')
+				.setStyle(ButtonStyle.Secondary);
+
+			const row1 = new ActionRowBuilder().addComponents(selectMenu);
+			const row2 = new ActionRowBuilder().addComponents(btnCancelAdd);
+
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+			const embeds = preTicketData ? preTicketData.embeds : [];
+
+			return interaction.update({
+				content: `🛒 **PILIH PRODUK TAMBAHAN UNTUK DRAF KERANJANG:**`,
+				embeds: embeds,
+				components: [row1, row2]
+			});
+		}
+
+		if (customId === 'preticket_remove_item') {
+			const draft = getDraftCart(interaction.user.id);
+			if (!draft || draft.items.length === 0) {
+				return interaction.update({
+					content: '⚠️ Draf keranjang kamu saat ini kosong.',
+					embeds: [],
+					components: []
+				});
+			}
+
+			const selectOptions = draft.items.map((item, idx) => {
+				return new StringSelectMenuOptionBuilder()
+					.setLabel(`${idx + 1}. ${item.name} (${item.quantity} Pcs)`)
+					.setValue(item.id)
+					.setDescription(`Klik untuk mengurangi 1 Pcs / menghapus dari keranjang`);
+			});
+
+			const selectMenu = new StringSelectMenuBuilder()
+				.setCustomId('preticket_select_remove_item')
+				.setPlaceholder('🗑️ Pilih Item Yang Ingin Dikurangi / Dihapus...')
+				.addOptions(selectOptions);
+
+			const btnCancelRemove = new ButtonBuilder()
+				.setCustomId('preticket_cancel_add_item')
+				.setLabel('↩️ Kembali ke Keranjang')
+				.setStyle(ButtonStyle.Secondary);
+
+			const row1 = new ActionRowBuilder().addComponents(selectMenu);
+			const row2 = new ActionRowBuilder().addComponents(btnCancelRemove);
+
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+			const embeds = preTicketData ? preTicketData.embeds : [];
+
+			return interaction.update({
+				content: `🗑️ **PILIH ITEM YANG INGIN DIKURANGI / DIHAPUS:**`,
+				embeds: embeds,
+				components: [row1, row2]
+			});
+		}
+
+		if (customId === 'preticket_cancel_add_item') {
+			const preTicketData = buildPreTicketCartEmbed(interaction.user.id);
+			if (preTicketData) {
+				return interaction.update({
+					content: null,
+					embeds: preTicketData.embeds,
+					components: preTicketData.components
+				});
+			} else {
+				return interaction.update({
+					content: 'ℹ️ Draf keranjang tidak ditemukan.',
+					embeds: [],
+					components: []
+				});
+			}
+		}
+
+		if (customId === 'preticket_create_ticket') {
+			const draft = getDraftCart(interaction.user.id);
+			if (!draft || draft.items.length === 0) {
+				return interaction.reply({ content: '❌ Draf keranjang tidak ditemukan atau kosong.', flags: MessageFlags.Ephemeral });
+			}
+
+			await interaction.deferUpdate();
+
+			const initialItem = draft.items[0];
+			const additionalItems = draft.items.slice(1);
+
+			await createTicketChannel(interaction, initialItem.itemObj, draft.robloxData, client, initialItem.quantity, additionalItems);
+
+			draftCarts.delete(interaction.user.id);
+			return;
+		}
+
+		if (customId === 'preticket_cancel') {
+			draftCarts.delete(interaction.user.id);
+			try {
+				await interaction.update({
+					content: 'ℹ️ **Pemesanan dibatalkan.** Silakan pilih produk dari panel katalog jika ingin membeli produk lain!',
+					embeds: [],
+					components: []
+				});
+			} catch (e) {}
+			return;
+		}
+
 		// Category Sub-Menu Filter
 		if (customId.startsWith('cat_filter_')) {
 			const catName = customId.replace('cat_filter_', '');
@@ -600,7 +1160,7 @@ async function handleBuyerInteraction(interaction, client) {
 			delete require.cache[require.resolve('../config/items')];
 			const items = require('../config/items');
 
-			const subMenuData = buildCategorySubMenuEphemeral(items, catName);
+			const subMenuData = getPanelManager().buildCategorySubMenuEphemeral(items, catName);
 			const userId = interaction.user.id;
 
 			const existingInteraction = userEphemeralInteractions.get(userId);
@@ -612,12 +1172,120 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			await interaction.reply({
-				content: subMenuData.content,
+				content: subMenuData.content || null,
+				embeds: subMenuData.embeds || [],
 				components: subMenuData.components,
 				flags: MessageFlags.Ephemeral
 			});
 
 			userEphemeralInteractions.set(userId, interaction);
+			return;
+		}
+
+		// Tombol Tambah Item Lain ke Keranjang Belanja
+		if (customId.startsWith('cart_add_item_')) {
+			const orderId = customId.replace('cart_add_item_', '');
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+
+			const selectOptions = currentItems.slice(0, 25).map(item => {
+				const isHeld = item.available === false || item.hold === true;
+				return new StringSelectMenuOptionBuilder()
+					.setLabel(isHeld ? `⛔ ${item.name} (Ditahan)` : `${item.name}`)
+					.setValue(item.id)
+					.setDescription(`Rp ${item.price.toLocaleString('id-ID')} • ${item.category}`);
+			});
+
+			const selectMenu = new StringSelectMenuBuilder()
+				.setCustomId(`cart_select_added_item_${orderId}`)
+				.setPlaceholder('➕ Pilih Produk Lain Untuk Ditambahkan...')
+				.addOptions(selectOptions);
+
+			const row = new ActionRowBuilder().addComponents(selectMenu);
+
+			return interaction.reply({
+				content: `🛒 **TAMBAH ITEM KE KERANJANG (${orderId}):**\nSilakan pilih produk tambahan dari menu dropdown di bawah:`,
+				components: [row],
+				flags: MessageFlags.Ephemeral
+			});
+		}
+
+		// Tombol Lanjut ke Pembayaran QRIS
+		if (customId.startsWith('cart_checkout_')) {
+			const orderId = customId.replace('cart_checkout_', '');
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+			const qrisData = buildQrisPaymentEmbedForCart(orderId);
+			if (!qrisData) {
+				return interaction.editReply({ content: '❌ Data keranjang tidak ditemukan.' });
+			}
+
+			// Update Supabase Purchase record dengan total & rincian barang
+			const cart = getCart(orderId);
+			if (cart) {
+				await supabase.from('purchases').update({
+					item_name: qrisData.itemSummaryName,
+					total_price: qrisData.totalAmount
+				}).eq('order_id', orderId.toUpperCase());
+			}
+
+			const qrisMsg = await interaction.channel.send({
+				embeds: qrisData.embeds,
+				components: qrisData.components,
+				files: qrisData.files || []
+			});
+
+			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
+
+			return interaction.editReply({
+				content: `✅ **PERINTAH PEMBAYARAN DI-GENERATE!** Silakan selesaikan pembayaran QRIS senilai **Rp ${qrisData.totalAmount.toLocaleString('id-ID')}** di atas.`
+			});
+		}
+
+		// Tombol Sub-Range Abjad Kategori (misal Skin A-E, F-S, T-Z)
+		if (customId.startsWith('subrange_Skin_')) {
+			const rangeCode = customId.replace('subrange_Skin_', '');
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+
+			const subMenuData = getPanelManager().buildCategorySubMenuEphemeral(currentItems, 'Skin Fish It', rangeCode);
+			const userId = interaction.user.id;
+
+			await interaction.update({
+				content: subMenuData.content || null,
+				embeds: subMenuData.embeds || [],
+				components: subMenuData.components
+			});
+			return;
+		}
+
+		// Tombol Kembali ke Kelompok Sub-Kategori (misal Skin A-Z)
+		if (customId.startsWith('back_to_subcat_')) {
+			const targetCat = customId.replace('back_to_subcat_', '');
+			delete require.cache[require.resolve('../config/items')];
+			const currentItems = require('../config/items');
+
+			const subMenuData = getPanelManager().buildCategorySubMenuEphemeral(currentItems, targetCat, null);
+
+			await interaction.update({
+				content: subMenuData.content || null,
+				embeds: subMenuData.embeds || [],
+				components: subMenuData.components
+			});
+			return;
+		}
+
+		// Tombol Kembali (Tutup Menu Ephemeral Sub-Kategori)
+		if (customId === 'back_to_main_cat') {
+			try {
+				await interaction.update({
+					content: `ℹ️ **Navigasi Ditutup.** Silakan klik tombol kategori pada panel utama di atas jika ingin memilih produk lain!`,
+					components: []
+				});
+				setTimeout(async () => {
+					try { await interaction.deleteReply(); } catch (e) {}
+				}, 1500);
+			} catch (e) {}
 			return;
 		}
 

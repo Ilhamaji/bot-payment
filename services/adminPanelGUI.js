@@ -14,7 +14,17 @@ const {
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAdmin, isOwner, addAdmin, removeAdmin, getAdmins } = require('./admins');
-const { setCategoryEmoji, getCategoryEmoji, getItemEmoji, savePanelLocation, saveLeaderboardLocation, updateGlobalPanel } = require('./panelManager');
+const { 
+	setCategoryEmoji, 
+	getCategoryEmoji, 
+	getItemEmoji, 
+	savePanelLocation, 
+	saveLeaderboardLocation, 
+	updateGlobalPanel,
+	getCategoryConfig,
+	setCategoryConfig,
+	isCategoryQuantityAllowed
+} = require('./panelManager');
 
 function getItemsData() {
 	const itemsFilePath = path.join(__dirname, '../config/items.js');
@@ -27,6 +37,45 @@ function saveItemsData(items, itemsFilePath) {
 	const fileContent = `/**\n * DATAKATALOG ITEM BEBEY STORE\n */\nmodule.exports = ${JSON.stringify(items, null, 4)};\n`;
 	fs.writeFileSync(itemsFilePath, fileContent, 'utf8');
 	delete require.cache[require.resolve('../config/items')];
+}
+
+function buildCategorySettingEmbedAndComponents(catName) {
+	const config = getCategoryConfig(catName);
+	const catEmoji = config.emoji || '📁';
+	const isQtyAllowed = config.allowQuantity === true;
+
+	const embed = new EmbedBuilder()
+		.setTitle(`📁  PENGATURAN KATEGORI: ${catName}`)
+		.setColor(isQtyAllowed ? 0x2ECC71 : 0x3498DB)
+		.setDescription(
+			`Kelola pengaturan nama dan mode pembelian (jumlah / keranjang) untuk kategori **${catName}**.\n\n` +
+			`💡 *Klik tombol **[ 🛒 Toggle Keranjang ]** di bawah untuk menentukan apakah pembeli dapat membeli beberapa item sekaligus dalam 1 tiket.*`
+		)
+		.addFields(
+			{ name: '📁 Nama Kategori', value: `${catEmoji} \`${catName}\``, inline: true },
+			{ name: '🛒 Mode Pembelian', value: isQtyAllowed ? '`🟢 BISA BELI BEBERAPA (Multi-Qty / Keranjang)`' : '`🔴 HANYA 1 PCS (Single Item)`', inline: true }
+		)
+		.setTimestamp()
+		.setFooter({ text: '⚡ Bebey Store Admin Control Center' });
+
+	const renameBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_renamecat_${catName}`)
+		.setLabel('✏️ Ubah Nama Kategori')
+		.setStyle(ButtonStyle.Primary);
+
+	const toggleQtyBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_toggle_qty_${catName}`)
+		.setLabel(isQtyAllowed ? '🛒 Mode Keranjang: ON 🟢' : '🛒 Mode Keranjang: OFF 🔴')
+		.setStyle(isQtyAllowed ? ButtonStyle.Success : ButtonStyle.Secondary);
+
+	const doneBtn = new ButtonBuilder()
+		.setCustomId('ap_btn_done_cat')
+		.setLabel('✅ Selesai Edit')
+		.setStyle(ButtonStyle.Secondary);
+
+	const row = new ActionRowBuilder().addComponents(renameBtn, toggleQtyBtn, doneBtn);
+
+	return { embed, components: [row] };
 }
 
 function buildItemCategorySelectMenu(item) {
@@ -97,12 +146,22 @@ function buildItemCheckboxMenu(item) {
 }
 
 function buildItemDoneButton(item) {
+	const editPriceBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_edit_price_${item.id}`)
+		.setLabel('✏️ Edit Harga & Nama')
+		.setStyle(ButtonStyle.Primary);
+
+	const delBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_del_single_${item.id}`)
+		.setLabel('🗑️ Hapus Produk Ini')
+		.setStyle(ButtonStyle.Danger);
+
 	const doneBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_item_done_${item.id}`)
-		.setLabel('✅ Konfirmasi & Selesai Edit')
+		.setLabel('✅ Selesai Edit')
 		.setStyle(ButtonStyle.Success);
 
-	return new ActionRowBuilder().addComponents(doneBtn);
+	return new ActionRowBuilder().addComponents(editPriceBtn, delBtn, doneBtn);
 }
 
 function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
@@ -119,7 +178,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 		.setColor(isHeld ? 0xED4245 : 0x2ECC71)
 		.setDescription(
 			`Berikut adalah detail & setting produk **${item.name}**:\n\n` +
-			`💡 *Ubah Kategori & Centang Setting di bawah, lalu tekan **✅ Konfirmasi & Selesai Edit** jika sudah selesai!*`
+			`💡 *Klik **✏️ Edit Harga & Nama** untuk mengubah harga/nama, ubah kategori/setting di bawah, lalu tekan **✅ Selesai Edit**!*`
 		)
 		.addFields(
 			{ name: '🆔 ID Item', value: `\`${item.id}\``, inline: true },
@@ -131,7 +190,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
 		.setTimestamp()
-		.setFooter({ text: 'Tekan "✅ Konfirmasi & Selesai Edit" untuk menyimpan dan membersihkan tampilan.' });
+		.setFooter({ text: 'Tekan "✅ Selesai Edit" untuk menyimpan dan membersihkan tampilan.' });
 
 	return embed;
 }
@@ -190,6 +249,72 @@ async function handleAdminPanelInteraction(interaction, client) {
 			return;
 		}
 
+		// Tombol Launch Modal Edit Harga & Nama Item
+		if (customId.startsWith('ap_btn_edit_price_')) {
+			const itemId = customId.replace('ap_btn_edit_price_', '');
+			const { items } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			const modal = new ModalBuilder()
+				.setCustomId(`ap_modal_edititem_${item.id}`)
+				.setTitle(`EDIT: ${item.name.substring(0, 20)}`);
+
+			const nameInput = new TextInputBuilder()
+				.setCustomId('edit_name')
+				.setLabel('NAMA ITEM / MENU:')
+				.setStyle(TextInputStyle.Short)
+				.setValue(item.name || '')
+				.setRequired(true);
+
+			const priceInput = new TextInputBuilder()
+				.setCustomId('edit_price')
+				.setLabel('HARGA (RUPIAH):')
+				.setStyle(TextInputStyle.Short)
+				.setValue(String(item.price || 0))
+				.setRequired(true);
+
+			const notesInput = new TextInputBuilder()
+				.setCustomId('edit_notes')
+				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
+				.setStyle(TextInputStyle.Paragraph)
+				.setValue(item.notes || '')
+				.setRequired(false);
+
+			modal.addComponents(
+				new ActionRowBuilder().addComponents(nameInput),
+				new ActionRowBuilder().addComponents(priceInput),
+				new ActionRowBuilder().addComponents(notesInput)
+			);
+
+			return interaction.showModal(modal);
+		}
+
+		// Tombol Hapus Produk Tunggal
+		if (customId.startsWith('ap_btn_del_single_')) {
+			const itemId = customId.replace('ap_btn_del_single_', '');
+			const { items, itemsFilePath } = getItemsData();
+			const itemIndex = items.findIndex(i => i.id === itemId);
+
+			if (itemIndex >= 0) {
+				const deletedName = items[itemIndex].name;
+				items.splice(itemIndex, 1);
+				saveItemsData(items, itemsFilePath);
+				updateGlobalPanel(client);
+
+				return interaction.update({
+					content: `✅ **Produk "${deletedName}" telah berhasil dihapus secara permanen dari katalog toko!**`,
+					embeds: [],
+					components: []
+				});
+			} else {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+		}
+
 		// Refresh Dashboard
 		if (customId === 'ap_btn_refresh') {
 			const embed = buildAdminDashboardEmbed(interaction.user);
@@ -242,6 +367,107 @@ async function handleAdminPanelInteraction(interaction, client) {
 			});
 		}
 
+		// Tombol Minta Konfirmasi Reset Leaderboard
+		if (customId === 'ap_btn_resetlb') {
+			const confirmEmbed = new EmbedBuilder()
+				.setTitle('🏆  KONFIRMASI RESET LEADERBOARD TOP SPENDERS')
+				.setColor(0xED4245)
+				.setDescription(
+					`Apakah Anda yakin ingin **mereset data Leaderboard Top Spenders**?\n\n` +
+					`📌 **Catatan Penting:**\n` +
+					`• Peringkat Top Spenders pada channel **#leaderboard** akan dihitung ulang dari awal (0) mulai dari waktu reset.\n` +
+					`• Data histori transaksi & Laporan Penjualan Excel **TIDAK AKAN DIHAPUS** (tetap aman).\n\n` +
+					`Klik tombol **"✅ Ya, Reset Leaderboard"** di bawah untuk konfirmasi.`
+				)
+				.setTimestamp()
+				.setFooter({ text: 'Bebey Store Admin Control Center' });
+
+			const confirmBtn = new ButtonBuilder()
+				.setCustomId('ap_btn_confirm_resetlb')
+				.setLabel('✅ Ya, Reset Leaderboard')
+				.setStyle(ButtonStyle.Danger);
+
+			const cancelBtn = new ButtonBuilder()
+				.setCustomId('ap_btn_cancel_resetlb')
+				.setLabel('❌ Batal')
+				.setStyle(ButtonStyle.Secondary);
+
+			const confirmRow = new ActionRowBuilder().addComponents(confirmBtn, cancelBtn);
+
+			return interaction.reply({
+				embeds: [confirmEmbed],
+				components: [confirmRow],
+				flags: MessageFlags.Ephemeral
+			});
+		}
+
+		// Tombol Eksekusi Reset Leaderboard
+		if (customId === 'ap_btn_confirm_resetlb') {
+			const { resetLeaderboardTime, updateGlobalPanel } = require('./panelManager');
+			const resetTimeStr = resetLeaderboardTime();
+
+			await updateGlobalPanel(client);
+
+			return interaction.update({
+				content: `✅ **LEADERBOARD BERHASIL DI-RESET!**\n> Seluruh data peringkat Top Spenders telah di-reset per **${new Date().toLocaleString('id-ID')}**.\n> Panel Live Leaderboard di channel **#leaderboard** telah di-update otomatis!`,
+				embeds: [],
+				components: []
+			});
+		}
+
+		// Tombol Batal Reset Leaderboard
+		if (customId === 'ap_btn_cancel_resetlb') {
+			const embed = buildAdminDashboardEmbed(interaction.user);
+			const components = buildAdminDashboardComponents(interaction.user.id);
+			return interaction.update({ content: '❌ Reset Leaderboard dibatalkan.', embeds: [embed], components: components });
+		}
+
+		// Toggle Mode Keranjang / Multi Quantity Kategori
+		if (customId.startsWith('ap_btn_toggle_qty_')) {
+			const catName = customId.replace('ap_btn_toggle_qty_', '');
+			const currentConfig = getCategoryConfig(catName);
+			const newAllowQty = !currentConfig.allowQuantity;
+
+			setCategoryConfig(catName, { allowQuantity: newAllowQty });
+			updateGlobalPanel(client);
+
+			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.update({ embeds: [embed], components: components });
+		}
+
+		// Modal Rename Kategori Launcher
+		if (customId.startsWith('ap_btn_renamecat_')) {
+			const catName = customId.replace('ap_btn_renamecat_', '');
+			const modal = new ModalBuilder()
+				.setCustomId(`ap_modal_editcat_${catName}`)
+				.setTitle(`EDIT KATEGORI: ${catName.substring(0, 20)}`);
+
+			const newCatInput = new TextInputBuilder()
+				.setCustomId('new_cat_name')
+				.setLabel('NAMA KATEGORI BARU:')
+				.setStyle(TextInputStyle.Short)
+				.setValue(catName)
+				.setRequired(true);
+
+			modal.addComponents(new ActionRowBuilder().addComponents(newCatInput));
+			return interaction.showModal(modal);
+		}
+
+		// Tombol Selesai Edit Kategori
+		if (customId === 'ap_btn_done_cat') {
+			try {
+				await interaction.update({
+					content: `✅ **Pengaturan kategori telah selesai & disimpan!**\n> *Tampilan ini akan otomatis hilang dalam 2 detik...*`,
+					embeds: [],
+					components: []
+				});
+				setTimeout(async () => {
+					try { await interaction.deleteReply(); } catch (e) {}
+				}, 2000);
+			} catch (e) {}
+			return;
+		}
+
 		// Modal Tambah Item
 		if (customId === 'ap_btn_additem') {
 			const modal = new ModalBuilder()
@@ -283,30 +509,42 @@ async function handleAdminPanelInteraction(interaction, client) {
 			return interaction.showModal(modal);
 		}
 
-		// Select Menu Edit Item
+		// Select Menu Edit Item / Menu: Step 1 Pilih Kategori
 		if (customId === 'ap_btn_edititem') {
 			const { items } = getItemsData();
 			if (items.length === 0) {
 				return interaction.reply({ content: '❌ Belum ada item di katalog toko.', flags: MessageFlags.Ephemeral });
 			}
 
-			const selectMenu = new StringSelectMenuBuilder()
-				.setCustomId('ap_select_edititem')
-				.setPlaceholder('-- Pilih Item Yang Ingin Diedit --');
+			const categories = [...new Set(items.map(i => i.category || 'General'))];
 
-			items.slice(0, 25).forEach(item => {
+			const selectMenu = new StringSelectMenuBuilder()
+				.setCustomId('ap_select_cat_for_edit')
+				.setPlaceholder('-- Langkah 1: Pilih Kategori Produk --');
+
+			selectMenu.addOptions(
+				new StringSelectMenuOptionBuilder()
+					.setLabel('🌐 SELURUH MENU (TAMPILKAN SEMUA)')
+					.setValue('CAT_ALL')
+					.setDescription(`Tampilkan seluruh item di katalog toko (${items.length} Menu)`)
+					.setEmoji('🌐')
+			);
+
+			categories.forEach(cat => {
+				const catEmoji = getCategoryEmoji(cat);
+				const catCount = items.filter(i => (i.category || 'General').toLowerCase() === cat.toLowerCase()).length;
 				selectMenu.addOptions(
 					new StringSelectMenuOptionBuilder()
-						.setLabel(`${item.name}`.substring(0, 50))
-						.setValue(item.id)
-						.setDescription(`Rp ${(item.price || 0).toLocaleString('id-ID')} • ${item.category || 'General'}`)
-						.setEmoji(getItemEmoji(item) || '📦')
+						.setLabel(`${cat} (${catCount} Menu)`)
+						.setValue(`CAT_${cat}`)
+						.setDescription(`Kelola & edit produk di kategori ${cat}`)
+						.setEmoji(catEmoji || '📁')
 				);
 			});
 
 			const row = new ActionRowBuilder().addComponents(selectMenu);
 			return interaction.reply({ 
-				content: '✏️ **Pilih produk yang ingin Anda ubah/edit dari katalog:**', 
+				content: '✏️ **EDIT MENU / ITEM (LANGKAH 1):**\nSilakan pilih **Kategori Produk** di bawah untuk melihat daftar menu yang ada:', 
 				components: [row], 
 				flags: MessageFlags.Ephemeral 
 			});
@@ -585,7 +823,47 @@ async function handleAdminPanelInteraction(interaction, client) {
 			return interaction.update({ embeds: [embed], components: components });
 		}
 
-		// Edit Item Modal Launcher
+		// Step 2: Tampilkan Dropdown Produk Dalam Kategori Terpilih
+		if (customId === 'ap_select_cat_for_edit') {
+			const selectedVal = interaction.values[0];
+			const { items } = getItemsData();
+
+			let filteredItems = items;
+			let catTitle = 'SELURUH MENU';
+
+			if (selectedVal !== 'CAT_ALL') {
+				const targetCat = selectedVal.replace('CAT_', '');
+				filteredItems = items.filter(i => (i.category || 'General').toLowerCase() === targetCat.toLowerCase());
+				catTitle = targetCat.toUpperCase();
+			}
+
+			if (filteredItems.length === 0) {
+				return interaction.update({ content: `❌ Tidak ada produk di kategori ${catTitle}.`, components: [] });
+			}
+
+			const selectMenu = new StringSelectMenuBuilder()
+				.setCustomId('ap_select_edititem')
+				.setPlaceholder(`-- Langkah 2: Pilih Produk ${catTitle} --`);
+
+			filteredItems.slice(0, 25).forEach(item => {
+				const isHeld = item.available === false || item.hold === true;
+				selectMenu.addOptions(
+					new StringSelectMenuOptionBuilder()
+						.setLabel(`${item.name}`.substring(0, 50))
+						.setValue(item.id)
+						.setDescription(`${isHeld ? '⛔ DITAHAN • ' : ''}Rp ${(item.price || 0).toLocaleString('id-ID')} • ${item.category || 'General'}`)
+						.setEmoji(getItemEmoji(item) || '📦')
+				);
+			});
+
+			const row = new ActionRowBuilder().addComponents(selectMenu);
+			return interaction.update({
+				content: `📁 **KATEGORI TERPILIH: ${catTitle}** (${filteredItems.length} Produk)\nSilakan pilih **Produk / Menu** yang ingin Anda ubah/edit dari menu dropdown di bawah:`,
+				components: [row]
+			});
+		}
+
+		// Step 3: Tampilkan Control Panel Detail Item Yang Dipilih
 		if (customId === 'ap_select_edititem') {
 			const selectedItemId = interaction.values[0];
 			const { items } = getItemsData();
@@ -595,38 +873,14 @@ async function handleAdminPanelInteraction(interaction, client) {
 				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
 			}
 
-			const modal = new ModalBuilder()
-				.setCustomId(`ap_modal_edititem_${item.id}`)
-				.setTitle(`EDIT ITEM: ${item.name.substring(0, 20)}`);
+			const embed = buildItemDetailEmbed(item, 'EDIT PRODUK');
+			const components = getItemSettingComponents(item);
 
-			const nameInput = new TextInputBuilder()
-				.setCustomId('edit_name')
-				.setLabel('NAMA ITEM:')
-				.setStyle(TextInputStyle.Short)
-				.setValue(item.name || '')
-				.setRequired(true);
-
-			const priceInput = new TextInputBuilder()
-				.setCustomId('edit_price')
-				.setLabel('HARGA (RUPIAH):')
-				.setStyle(TextInputStyle.Short)
-				.setValue(String(item.price || 0))
-				.setRequired(true);
-
-			const notesInput = new TextInputBuilder()
-				.setCustomId('edit_notes')
-				.setLabel('CATATAN KHUSUS TIKET (Opsional):')
-				.setStyle(TextInputStyle.Paragraph)
-				.setValue(item.notes || '')
-				.setRequired(false);
-
-			modal.addComponents(
-				new ActionRowBuilder().addComponents(nameInput),
-				new ActionRowBuilder().addComponents(priceInput),
-				new ActionRowBuilder().addComponents(notesInput)
-			);
-
-			return interaction.showModal(modal);
+			return interaction.update({
+				content: null,
+				embeds: [embed],
+				components: components
+			});
 		}
 
 		// Hapus Item Action
@@ -652,22 +906,11 @@ async function handleAdminPanelInteraction(interaction, client) {
 			return interaction.update({ content: null, embeds: [embed], components: [] });
 		}
 
-		// Edit Kategori Modal Launcher
+		// Select Menu Edit Kategori (Tampilkan Card GUI Pengaturan Kategori)
 		if (customId === 'ap_select_editcat') {
-			const oldCategory = interaction.values[0];
-			const modal = new ModalBuilder()
-				.setCustomId(`ap_modal_editcat_${oldCategory}`)
-				.setTitle(`EDIT KATEGORI: ${oldCategory.substring(0, 20)}`);
-
-			const newCatInput = new TextInputBuilder()
-				.setCustomId('new_cat_name')
-				.setLabel('NAMA KATEGORI BARU:')
-				.setStyle(TextInputStyle.Short)
-				.setValue(oldCategory)
-				.setRequired(true);
-
-			modal.addComponents(new ActionRowBuilder().addComponents(newCatInput));
-			return interaction.showModal(modal);
+			const catName = interaction.values[0];
+			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.reply({ embeds: [embed], components: components, flags: MessageFlags.Ephemeral });
 		}
 
 		// Hapus Kategori Action

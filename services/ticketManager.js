@@ -5,8 +5,11 @@ const {
 	ButtonStyle, 
 	MessageFlags, 
 	ChannelType, 
-	PermissionFlagsBits 
+	PermissionFlagsBits,
+	AttachmentBuilder
 } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { createPurchase, updatePurchaseStatus } = require('./supabase');
 const { updateGlobalPanel } = require('./panelManager');
@@ -144,12 +147,19 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 	}
 }
 
-function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
+function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode = 0, quantity = 1) {
 	const itemEmoji = selectedItem.emoji || '📦';
 	const formattedPrice = `Rp ${totalAmount.toLocaleString('id-ID')}`;
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
+
+	const qtyLabel = itemQty > 1 ? ` (x${itemQty})` : '';
+	const qtyDetailLine = itemQty > 1 
+		? `🔢 **Jumlah:** **${itemQty} Pcs** (@ Rp ${Number(selectedItem.price || 0).toLocaleString('id-ID')})\n` 
+		: '';
 
 	const paymentDescription = 
-		`📦 **Produk:** ${itemEmoji} **${selectedItem.name}**\n` +
+		`📦 **Produk:** ${itemEmoji} **${selectedItem.name}**${qtyLabel}\n` +
+		qtyDetailLine +
 		`💰 **Total Bayar:** **${formattedPrice}**\n` +
 		`🆔 **Order ID:** \`${orderId}\`\n\n` +
 		`📌 **CARA BAYAR:**\n` +
@@ -167,9 +177,28 @@ function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
 		.setTitle(`💳  CARA BAYAR VIA QRIS`)
 		.setColor(0x3498DB)
 		.setDescription(paymentDescription.trim())
-		.setImage(qrisImage)
 		.setTimestamp()
 		.setFooter({ text: '💖 Bebey Store Official' });
+
+	const files = [];
+	const imageTarget = qrisImage || process.env.QRIS_IMAGE_URL || './assets/qris.jpg';
+
+	if (imageTarget.startsWith('http://') || imageTarget.startsWith('https://')) {
+		paymentEmbed.setImage(imageTarget);
+	} else {
+		const resolvedPath = path.isAbsolute(imageTarget) 
+			? imageTarget 
+			: path.join(__dirname, '..', imageTarget);
+
+		if (fs.existsSync(resolvedPath)) {
+			const filename = path.basename(resolvedPath);
+			const attachment = new AttachmentBuilder(resolvedPath, { name: filename });
+			files.push(attachment);
+			paymentEmbed.setImage(`attachment://${filename}`);
+		} else {
+			paymentEmbed.setImage('https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE');
+		}
+	}
 
 	const transferredBtn = new ButtonBuilder()
 		.setCustomId(`already_transferred_${orderId}`)
@@ -178,13 +207,202 @@ function buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage) {
 
 	const row = new ActionRowBuilder().addComponents(transferredBtn);
 
-	return { embeds: [paymentEmbed], components: [row] };
+	const result = { embeds: [paymentEmbed], components: [row] };
+	if (files.length > 0) {
+		result.files = files;
+	}
+
+	return result;
 }
 
-async function createTicketChannel(interaction, selectedItem, robloxData = 'Tidak Perlu', client) {
+const activeCarts = new Map();
+const cartMessages = new Map();
+
+function getCart(orderId) {
+	if (!orderId) return null;
+	return activeCarts.get(orderId.toUpperCase()) || null;
+}
+
+function initCart(orderId, userId, robloxUsername, selectedItem, quantity, uniqueCode) {
+	const cleanOrderId = orderId.toUpperCase();
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
+
+	const initialItem = {
+		id: selectedItem.id,
+		name: selectedItem.name,
+		price: Number(selectedItem.price || 0),
+		emoji: selectedItem.emoji || '📦',
+		category: selectedItem.category,
+		quantity: itemQty,
+		subtotal: Number(selectedItem.price || 0) * itemQty
+	};
+
+	const cart = {
+		orderId: cleanOrderId,
+		userId: userId,
+		robloxUsername: robloxUsername,
+		uniqueCode: uniqueCode,
+		items: [initialItem],
+		isCheckedOut: false
+	};
+
+	activeCarts.set(cleanOrderId, cart);
+	return cart;
+}
+
+function addItemToCart(orderId, item, quantity = 1) {
+	const cleanOrderId = orderId.toUpperCase();
+	const cart = activeCarts.get(cleanOrderId);
+	if (!cart) return null;
+
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
+	const existingIndex = cart.items.findIndex(i => i.id === item.id);
+
+	if (existingIndex >= 0) {
+		cart.items[existingIndex].quantity += itemQty;
+		cart.items[existingIndex].subtotal = cart.items[existingIndex].price * cart.items[existingIndex].quantity;
+	} else {
+		cart.items.push({
+			id: item.id,
+			name: item.name,
+			price: Number(item.price || 0),
+			emoji: item.emoji || '📦',
+			category: item.category,
+			quantity: itemQty,
+			subtotal: Number(item.price || 0) * itemQty
+		});
+	}
+
+	activeCarts.set(cleanOrderId, cart);
+	return cart;
+}
+
+function buildCartEmbedAndComponents(orderId) {
+	const cleanOrderId = orderId.toUpperCase();
+	const cart = activeCarts.get(cleanOrderId);
+	if (!cart) return null;
+
+	let subtotalAll = 0;
+	let itemsListStr = '';
+
+	cart.items.forEach((item, index) => {
+		subtotalAll += item.subtotal;
+		itemsListStr += `**${index + 1}.** ${item.emoji} **${item.name}**\n` +
+						`└ \`${item.quantity} Pcs\` @ Rp ${item.price.toLocaleString('id-ID')} = **Rp ${item.subtotal.toLocaleString('id-ID')}**\n\n`;
+	});
+
+	const userLine = (cart.robloxUsername && cart.robloxUsername !== 'Tidak Perlu') 
+		? `👤 **Username Roblox:** \`${cart.robloxUsername}\`\n\n` 
+		: '';
+
+	const cartDescription = 
+		`Halo <@${cart.userId}>! Berikut adalah **Detail Pesanan** kamu:\n\n` +
+		userLine +
+		`📦 **DAFTAR PRODUK PESANAN:**\n` +
+		itemsListStr +
+		`🆔 **Order ID:** \`${cart.orderId}\`\n` +
+		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**`;
+
+	const cartEmbed = new EmbedBuilder()
+		.setTitle(`🎫  BEBEY STORE — DETAIL PESANAN`)
+		.setColor(0x3498DB)
+		.setDescription(cartDescription.trim())
+		.setTimestamp()
+		.setFooter({ text: `💖 Bebey Store Official • ${cart.orderId}` });
+
+	const btnSos = new ButtonBuilder()
+		.setCustomId('sos_help_button')
+		.setLabel('🆘 Bantuan Admin')
+		.setStyle(ButtonStyle.Danger);
+
+	const btnClose = new ButtonBuilder()
+		.setCustomId('close_ticket_button')
+		.setLabel('🔒 Batal / Tutup Tiket')
+		.setStyle(ButtonStyle.Secondary);
+
+	const row = new ActionRowBuilder().addComponents(btnSos, btnClose);
+
+	return { embeds: [cartEmbed], components: [row] };
+}
+
+function buildQrisPaymentEmbedForCart(orderId, qrisImageOverride = null) {
+	const cleanOrderId = orderId.toUpperCase();
+	const cart = activeCarts.get(cleanOrderId);
+	if (!cart) return null;
+
+	let subtotalAll = 0;
+	let itemsDetailStr = '';
+
+	cart.items.forEach((item, index) => {
+		subtotalAll += item.subtotal;
+		itemsDetailStr += `${item.emoji} **${item.name}** (x${item.quantity}) • \`Rp ${item.subtotal.toLocaleString('id-ID')}\`\n`;
+	});
+
+	const totalAmount = subtotalAll + cart.uniqueCode;
+	const qrisImage = qrisImageOverride || process.env.QRIS_IMAGE_URL || './assets/qris.jpg';
+
+	const itemSummaryName = cart.items.map(i => `${i.name} (x${i.quantity})`).join(', ');
+
+	const robloxLine = (cart.robloxUsername && cart.robloxUsername !== 'Tidak Perlu') 
+		? `👤 **Username Roblox:** \`${cart.robloxUsername}\`\n\n` 
+		: '\n';
+
+	const paymentEmbed = new EmbedBuilder()
+		.setTitle('💳  BEBEY STORE — PEMBAYARAN QRIS')
+		.setColor(0xF1C40F)
+		.setDescription(
+			`Silakan selesaikan pembayaran untuk **${cart.items.length} jenis item** di keranjang kamu:\n\n` +
+			itemsDetailStr + `\n` +
+			`🆔 **Order ID:** \`${cart.orderId}\`\n` +
+			robloxLine +
+			`⚠️ **JUMLAH PERSIS YANG WAJIB DITRANSFER:**\n` +
+			`# 💰 **Rp ${totalAmount.toLocaleString('id-ID')}**\n\n` +
+			`📌 **Petunjuk Pembayaran:**\n` +
+			`1. Scan QRIS di atas menggunakan E-Wallet (Gopay, OVO, Dana, ShopeePay, LinkAja) atau Mobile Banking (BCA, Mandiri, BRI, BNI).\n` +
+			`2. Pastikan nominal transfer **SANGAT PERSIS Rp ${totalAmount.toLocaleString('id-ID')}** *(Termasuk kode unik 3 digit terakhir)*.\n` +
+			`3. Setelah transfer berhasil, klik tombol **"✅ Saya Sudah Transfer"** atau upload foto/screenshot bukti transfer di channel ini.`
+		)
+		.setTimestamp()
+		.setFooter({ text: `⚡ Bebey Store Official • ${cart.orderId}` });
+
+	const files = [];
+	const imageTarget = qrisImage;
+
+	if (imageTarget.startsWith('http://') || imageTarget.startsWith('https://')) {
+		paymentEmbed.setImage(imageTarget);
+	} else {
+		const resolvedPath = path.isAbsolute(imageTarget) 
+			? imageTarget 
+			: path.join(__dirname, '..', imageTarget);
+
+		if (fs.existsSync(resolvedPath)) {
+			const filename = path.basename(resolvedPath);
+			const attachment = new AttachmentBuilder(resolvedPath, { name: filename });
+			files.push(attachment);
+			paymentEmbed.setImage(`attachment://${filename}`);
+		} else {
+			paymentEmbed.setImage('https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE');
+		}
+	}
+
+	const transferredBtn = new ButtonBuilder()
+		.setCustomId(`already_transferred_${cart.orderId}`)
+		.setLabel('✅ Saya Sudah Transfer')
+		.setStyle(ButtonStyle.Success);
+
+	const row = new ActionRowBuilder().addComponents(transferredBtn);
+
+	const result = { embeds: [paymentEmbed], components: [row], totalAmount, itemSummaryName };
+	if (files.length > 0) result.files = files;
+	return result;
+}
+
+async function createTicketChannel(interaction, selectedItem, robloxData = 'Tidak Perlu', client, quantity = 1, additionalItems = []) {
 	const robloxUsername = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.username : String(robloxData);
 	const robloxDisplayName = (typeof robloxData === 'object' && robloxData !== null) ? (robloxData.displayName || robloxUsername) : robloxUsername;
 	const robloxUserId = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.id : null;
+
+	const itemQty = Math.max(1, parseInt(quantity) || 1);
 
 	const itemCode = (selectedItem.id || 'ITEM').toUpperCase();
 	const randomHash = uuidv4().substring(0, 4).toUpperCase();
@@ -193,7 +411,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 	// Generate Kode Unik 3 Digit Terakhir (1 - 999) di Background
 	const uniqueCode = Math.floor(Math.random() * 999) + 1;
-	const basePrice = Number(selectedItem.price || 0);
+	const basePrice = Number(selectedItem.price || 0) * itemQty;
 	const totalAmount = basePrice + uniqueCode;
 
 	const qrisImage = process.env.QRIS_IMAGE_URL || 'https://dummyimage.com/600x600/0984e3/ffffff.png&text=QRIS+BEBEY+STORE';
@@ -246,48 +464,28 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 
 		const replyMsg = `✅ **TIKET BERHASIL DIBUAT!** Klik tombol **"🚀 Buka Channel Tiket Kamu"** di bawah atau tekan ${ticketChannel} untuk langsung masuk ke channel tiket privat kamu!`;
 		if (interaction.deferred) {
-			await interaction.editReply({ content: replyMsg, components: [openRow] });
+			await interaction.editReply({ content: replyMsg, embeds: [], components: [openRow] });
 		} else {
-			await interaction.reply({ content: replyMsg, components: [openRow], flags: MessageFlags.Ephemeral });
+			await interaction.reply({ content: replyMsg, embeds: [], components: [openRow], flags: MessageFlags.Ephemeral });
 		}
 
 		ticketCreationInteractions.set(orderId.toUpperCase(), interaction);
 		ticketCreationInteractions.set(ticketChannel.id, interaction);
 
-		const userLine = (robloxUsername && robloxUsername !== 'Tidak Perlu') 
-			? `👤 **Username Roblox:** \`${robloxUsername}\`\n` 
-			: '';
+		// Inisialisasi Keranjang Belanja untuk pesanan ini
+		initCart(orderId, interaction.user.id, robloxUsername, selectedItem, itemQty, uniqueCode);
 
-		const ticketDescription = 
-			`Halo ${interaction.user}! Ini detail pesanan kamu:\n\n` +
-			`📦 **Produk:** ${selectedItem.emoji || '📦'} **${selectedItem.name}**\n` +
-			userLine +
-			`🆔 **Order ID:** \`${orderId}\`\n` +
-			`💰 **Total Transfer:** **Rp ${totalAmount.toLocaleString('id-ID')}**`;
+		if (additionalItems && Array.isArray(additionalItems) && additionalItems.length > 0) {
+			additionalItems.forEach(item => {
+				const itemObj = item.itemObj || item;
+				const qty = item.quantity || 1;
+				addItemToCart(orderId, itemObj, qty);
+			});
+		}
 
-		const ticketEmbed = new EmbedBuilder()
-			.setTitle(`🎫  BEBEY STORE — TIKET PESANAN`)
-			.setColor(0x2ECC71)
-			.setDescription(ticketDescription.trim())
-			.setTimestamp()
-			.setFooter({ text: `💖 Bebey Store • ${orderId}` });
-
-		const sosButton = new ButtonBuilder()
-			.setCustomId('sos_help_button')
-			.setLabel('🆘 Bantuan Admin')
-			.setStyle(ButtonStyle.Danger);
-
-		const closeButton = new ButtonBuilder()
-			.setCustomId('close_ticket_button')
-			.setLabel('🔒 Batal / Tutup Tiket')
-			.setStyle(ButtonStyle.Secondary);
-
-		const row = new ActionRowBuilder().addComponents(sosButton, closeButton);
-
-		await ticketChannel.send({
-			embeds: [ticketEmbed],
-			components: [row]
-		});
+		const cartData = buildCartEmbedAndComponents(orderId);
+		const cartMsg = await ticketChannel.send(cartData);
+		cartMessages.set(orderId.toUpperCase(), cartMsg);
 
 		if (robloxUsername && robloxUsername !== 'Tidak Perlu') {
 			const isFound = robloxUserId !== null && robloxData?.found !== false;
@@ -308,7 +506,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 						`📛 **Username:** \`${robloxUsername}\`\n` +
 						`✨ **Display Name:** **${robloxDisplayName}**\n` +
 						`🔢 **User ID:** \`${robloxUserId || 'N/A'}\`\n\n` +
-						`Kalau benar, klik tombol di bawah ya! 👇`
+						`Jika data akun di atas sudah benar, silakan tekan tombol **"✅ Iya, Ini Akun Saya"** di bawah untuk melanjutkan ke pembayaran QRIS!`
 					)
 					.setFooter({ text: `💖 Bebey Store • ${orderId}` });
 
@@ -346,16 +544,22 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 					components: [notFoundRow]
 				});
 			}
-		} else {
-			const qrisCard = buildQrisPaymentEmbed(selectedItem, orderId, totalAmount, qrisImage, uniqueCode);
-			const qrisMsg = await ticketChannel.send({
-				embeds: qrisCard.embeds,
-				components: qrisCard.components
-			});
-			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
 		}
 
-		await createPurchase(orderId, robloxUsername, selectedItem.name, totalAmount, uniqueCode, 'pending', interaction.user.tag);
+		const recordItemName = itemQty > 1 ? `${selectedItem.name} (x${itemQty})` : selectedItem.name;
+		await createPurchase(orderId, robloxUsername, recordItemName, totalAmount, uniqueCode, 'pending', interaction.user.tag);
+
+		if (!robloxUsername || robloxUsername === 'Tidak Perlu') {
+			const qrisData = buildQrisPaymentEmbedForCart(orderId);
+			if (qrisData) {
+				const qrisMsg = await ticketChannel.send({
+					embeds: qrisData.embeds,
+					components: qrisData.components,
+					files: qrisData.files || []
+				});
+				qrisMessages.set(orderId.toUpperCase(), qrisMsg);
+			}
+		}
 
 	} catch (err) {
 		console.error('Error creating ticket channel:', err);
@@ -464,6 +668,7 @@ module.exports = {
 	ticketCreationInteractions,
 	buyerPendingProofs,
 	qrisMessages,
+	cartMessages,
 	pendingAdminDeliveryProof,
 	disableQrisButtonForOrder,
 	deleteTicketCreationMessage,
@@ -471,5 +676,10 @@ module.exports = {
 	buildQrisPaymentEmbed,
 	createTicketChannel,
 	deleteAdminChannelMessagesForOrder,
-	checkAndCleanupExpiredTickets
+	checkAndCleanupExpiredTickets,
+	getCart,
+	initCart,
+	addItemToCart,
+	buildCartEmbedAndComponents,
+	buildQrisPaymentEmbedForCart
 };

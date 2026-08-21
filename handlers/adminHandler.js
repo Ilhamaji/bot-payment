@@ -24,31 +24,14 @@ async function handleAdminInteraction(interaction, client) {
 
 			const orderId = customId.replace('admin_approve_', '');
 
-			const modal = new ModalBuilder()
-				.setCustomId(`modal_approve_delivery_${orderId}`)
-				.setTitle('BUKTI PENGIRIMAN (ADMIN)');
-
-			const proofInput = new TextInputBuilder()
-				.setCustomId('delivery_proof_url')
-				.setLabel("URL FOTO BUKTI / KETIK 'UPLOAD' :")
-				.setStyle(TextInputStyle.Short)
-				.setPlaceholder("Upload foto screenshot di channel ini atau paste URL gambar")
-				.setRequired(true)
-				.setValue('upload');
-
-			const notesInput = new TextInputBuilder()
-				.setCustomId('delivery_notes')
-				.setLabel("CATATAN UNTUK PEMBELI (Opsional):")
-				.setStyle(TextInputStyle.Paragraph)
-				.setPlaceholder("Cth: Robux sudah terkirim ke akun kamu ya!")
-				.setRequired(false);
-
-			const row1 = new ActionRowBuilder().addComponents(proofInput);
-			const row2 = new ActionRowBuilder().addComponents(notesInput);
-			modal.addComponents(row1, row2);
-
-			await interaction.showModal(modal);
-			return true;
+			return interaction.reply({
+				content: 
+					`📸 **CARA KIRIM BUKTI PENGIRIMAN (ORDER: \`${orderId}\`):**\n\n` +
+					`1. **Tekan Balas (Reply)** pada pesan notifikasi transaksi di atas.\n` +
+					`2. **Lampirkan / Upload Foto (Attachment Gambar)** bukti pengiriman item (screenshot pengiriman).\n` +
+					`3. Tekan Kirim. Bot akan otomatis mengirimkan foto bukti tersebut ke channel tiket pembeli!`,
+				flags: MessageFlags.Ephemeral
+			});
 		}
 
 		if (customId.startsWith('admin_reject_')) {

@@ -4,6 +4,77 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 
 const configFile = path.join(__dirname, '../config/panel_config.json');
 const categoryConfigFile = path.join(__dirname, '../config/category_emojis.json');
+const categorySettingsFile = path.join(__dirname, '../config/category_config.json');
+
+/**
+ * Membaca seluruh konfigurasi kategori dari category_config.json
+ */
+function getAllCategoryConfigs() {
+    try {
+        if (fs.existsSync(categorySettingsFile)) {
+            return JSON.parse(fs.readFileSync(categorySettingsFile, 'utf8'));
+        }
+        const emojis = getAllCategoryEmojis();
+        const configs = {};
+        Object.keys(emojis).forEach(cat => {
+            configs[cat] = { emoji: emojis[cat], allowQuantity: false };
+        });
+        return configs;
+    } catch (err) {
+        return {};
+    }
+}
+
+/**
+ * Membaca detail konfigurasi kategori spesifik (emoji & allowQuantity)
+ */
+function getCategoryConfig(categoryName) {
+    if (!categoryName) return { emoji: '📁', allowQuantity: false };
+    const configs = getAllCategoryConfigs();
+    const config = configs[categoryName];
+    if (config) {
+        if (typeof config === 'string') {
+            return { emoji: config, allowQuantity: false };
+        }
+        return {
+            emoji: config.emoji || '📁',
+            allowQuantity: config.allowQuantity === true
+        };
+    }
+    return {
+        emoji: '📁',
+        allowQuantity: false
+    };
+}
+
+/**
+ * Menyimpan / memperbarui konfigurasi kategori (emoji & allowQuantity)
+ */
+function setCategoryConfig(categoryName, newConfig) {
+    if (!categoryName) return;
+    const configs = getAllCategoryConfigs();
+    const current = configs[categoryName] || { emoji: '📁', allowQuantity: false };
+
+    configs[categoryName] = {
+        emoji: newConfig.emoji !== undefined ? newConfig.emoji : (current.emoji || '📁'),
+        allowQuantity: newConfig.allowQuantity !== undefined ? newConfig.allowQuantity : current.allowQuantity
+    };
+
+    try {
+        fs.writeFileSync(categorySettingsFile, JSON.stringify(configs, null, 4), 'utf8');
+        setCategoryEmoji(categoryName, configs[categoryName].emoji);
+    } catch (err) {
+        console.error('Error saving category config:', err);
+    }
+}
+
+/**
+ * Cek apakah item dalam kategori ini bisa dibeli beberapa sekaligus (multi quantity / keranjang)
+ */
+function isCategoryQuantityAllowed(categoryName) {
+    const config = getCategoryConfig(categoryName);
+    return config.allowQuantity === true;
+}
 
 /**
  * Membaca daftar emoji kategori dari config/category_emojis.json
@@ -35,8 +106,20 @@ function getAllCategoryEmojis() {
  * Mendapatkan emoji kategori (default ke 📁 jika belum diset)
  */
 function getCategoryEmoji(categoryName) {
+    if (!categoryName) return '📁';
+    try {
+        if (fs.existsSync(categorySettingsFile)) {
+            const configs = JSON.parse(fs.readFileSync(categorySettingsFile, 'utf8'));
+            if (configs && configs[categoryName]) {
+                const conf = configs[categoryName];
+                if (typeof conf === 'string') return conf;
+                if (conf.emoji) return conf.emoji;
+            }
+        }
+    } catch (e) {}
+
     const emojis = getAllCategoryEmojis();
-    if (emojis && categoryName && emojis[categoryName]) {
+    if (emojis && emojis[categoryName]) {
         return emojis[categoryName];
     }
     return '📁';
@@ -144,6 +227,25 @@ function savePanelLocation(channelId, leaderboardMessageId, catalogMessageId) {
 }
 
 /**
+ * Reset waktu hitung leaderboard (menyimpan timestamp reset ke config)
+ */
+function resetLeaderboardTime() {
+    try {
+        const configDir = path.dirname(configFile);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        const current = getPanelLocation();
+        current.leaderboardResetAt = new Date().toISOString();
+        fs.writeFileSync(configFile, JSON.stringify(current, null, 4), 'utf8');
+        return current.leaderboardResetAt;
+    } catch (err) {
+        console.error('Error saving leaderboard reset time:', err);
+        return null;
+    }
+}
+
+/**
  * Mendapatkan daftar kategori unik dari items
  */
 function getUniqueCategories(items) {
@@ -162,13 +264,6 @@ function getUniqueCategories(items) {
 function buildCategoryButtons(categories, selectedCategory = 'ALL') {
     const rows = [];
     let currentRow = new ActionRowBuilder();
-
-    // Tombol "Semua Produk"
-    const allBtn = new ButtonBuilder()
-        .setCustomId('cat_filter_ALL')
-        .setLabel('🌐 Semua Produk')
-        .setStyle(selectedCategory === 'ALL' ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    currentRow.addComponents(allBtn);
 
     categories.forEach(cat => {
         if (currentRow.components.length >= 5) {
@@ -196,61 +291,18 @@ function buildCategoryButtons(categories, selectedCategory = 'ALL') {
  */
 function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
     const categories = getUniqueCategories(items);
-    
-    // Grouping item per kategori
-    const grouped = {};
-    items.forEach(item => {
-        const cat = item.category || 'General';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(item);
-    });
 
     let catalogDescription = 
-        `Selamat datang di **Bebey Store**! Silakan pilih produk melalui menu dropdown di bawah untuk membuat tiket transaksi privat.\n\n`;
+        `Selamat datang di **Bebey Store**! 🏪\n\n` +
+        `Silakan **klik Tombol Kategori** di bawah ini untuk memilih produk & membuka tiket transaksi privat:\n\n`;
 
-    if (selectedCategory === 'ALL') {
-        // Tampilkan semua item terelompok per kategori
-        Object.keys(grouped).forEach(catName => {
-            const emoji = getCategoryEmoji(catName);
-            catalogDescription += `> ${emoji} **KATEGORI: ${catName.toUpperCase()}**\n`;
-            grouped[catName].forEach(item => {
-                const itemEmoji = getItemEmoji(item);
-                const parsed = parseEmoji(itemEmoji);
-                const isHeld = item.available === false || item.hold === true;
-                if (isHeld) {
-                    catalogDescription += `└ ⛔ ~**${item.name}**~ • \`Rp ${item.price.toLocaleString('id-ID')}\` *(Ditahan / Stok Kosong)*\n`;
-                } else {
-                    catalogDescription += `└ ${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
-                }
-            });
-            catalogDescription += `\n`;
-        });
-    } else {
-        // Tampilkan item kategori spesifik saja
-        const filteredItems = items.filter(i => (i.category || 'General').toLowerCase() === selectedCategory.toLowerCase());
-        const emoji = getCategoryEmoji(selectedCategory);
-        catalogDescription += `> ${emoji} **KATEGORI TERPILIH: ${selectedCategory.toUpperCase()}**\n\n`;
+    categories.forEach(catName => {
+        const emoji = getCategoryEmoji(catName);
+        const itemCount = items.filter(i => (i.category || 'General').toLowerCase() === catName.toLowerCase()).length;
+        catalogDescription += `> ${emoji} **${catName.toUpperCase()}** • \`${itemCount} Produk\`\n`;
+    });
 
-        if (filteredItems.length === 0) {
-            catalogDescription += `*Belum ada produk untuk kategori ini.*\n`;
-        } else {
-            filteredItems.forEach(item => {
-                const itemEmoji = getItemEmoji(item);
-                const parsed = parseEmoji(itemEmoji);
-                const isHeld = item.available === false || item.hold === true;
-                if (isHeld) {
-                    catalogDescription += `⛔ ~**${item.name}**~ • \`Rp ${item.price.toLocaleString('id-ID')}\` *(Ditahan / Stok Kosong)*\n`;
-                } else {
-                    catalogDescription += `${parsed.embed} **${item.name}** • \`Rp ${item.price.toLocaleString('id-ID')}\`\n`;
-                }
-                if (item.description) {
-                    catalogDescription += `└ *${item.description}*\n\n`;
-                } else {
-                    catalogDescription += `\n`;
-                }
-            });
-        }
-    }
+    catalogDescription += `\n📌 *Klik tombol kategori sesuai produk yang ingin kamu beli!*`;
 
     const catEmbed = new EmbedBuilder()
         .setTitle('🏪  BEBEY STORE — OFFICIAL STORE PANEL')
@@ -259,7 +311,6 @@ function buildCatalogPanelComponents(items, selectedCategory = 'ALL') {
         .setTimestamp()
         .setFooter({ text: '⚡ Bebey Store Official • Automatic 24/7 Ticketing System' });
 
-    // Baris 1-4: Tombol Kategori Filter
     const categoryRows = buildCategoryButtons(categories, selectedCategory);
 
     return {
@@ -353,17 +404,86 @@ async function updateGlobalPanel(client) {
 /**
  * Membuat Sub-Menu Ringkas Khusus Balasan Ephemeral Tombol Kategori
  */
-function buildCategorySubMenuEphemeral(items, catName) {
-    const filteredItems = catName === 'ALL' 
+function buildCategorySubMenuEphemeral(items, catName, rangeFilter = null) {
+    let filteredItems = catName === 'ALL' 
         ? items 
         : items.filter(i => (i.category || 'General').toLowerCase() === catName.toLowerCase());
 
     const emoji = getCategoryEmoji(catName);
-    const content = `📁 **KATEGORI TERPILIH: ${emoji} ${catName === 'ALL' ? 'SEMUA PRODUK' : catName.toUpperCase()}**\nSilakan pilih produk dari menu dropdown di bawah untuk membuat tiket transaksi:`;
 
-    const selectItemsList = filteredItems.length > 0 ? filteredItems : items;
+    // Kategori "Skin Fish It" (44 item) -> Tampilkan Tombol Sub-Kelompok Abjad jika belum memilih range
+    if (catName.toLowerCase() === 'skin fish it' && !rangeFilter) {
+        const skinEmbed = new EmbedBuilder()
+            .setTitle(`🗡️  BEBEY STORE — KATALOG SKIN FISH IT`)
+            .setColor(0x3498DB)
+            .setDescription(
+                `Kategori **Skin Fish It** memiliki total **44 Skin**.\n` +
+                `Silakan pilih kelompok abjad di bawah ini untuk melihat daftar lengkap produk & harganya:`
+            )
+            .setFooter({ text: '💖 Bebey Store Catalog • Skin Fish It' });
 
-    const selectOptions = selectItemsList.map(item => {
+        const btnAE = new ButtonBuilder()
+            .setCustomId('subrange_Skin_AE')
+            .setLabel('🗡️ Skin (A - E)')
+            .setStyle(ButtonStyle.Primary);
+
+        const btnFS = new ButtonBuilder()
+            .setCustomId('subrange_Skin_FS')
+            .setLabel('🗡️ Skin (F - S)')
+            .setStyle(ButtonStyle.Primary);
+
+        const btnTZ = new ButtonBuilder()
+            .setCustomId('subrange_Skin_TZ')
+            .setLabel('🗡️ Skin (T - Z)')
+            .setStyle(ButtonStyle.Primary);
+
+        const btnBackMain = new ButtonBuilder()
+            .setCustomId('back_to_main_cat')
+            .setLabel('⬅️ Kembali')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row1 = new ActionRowBuilder().addComponents(btnAE, btnFS, btnTZ);
+        const row2 = new ActionRowBuilder().addComponents(btnBackMain);
+
+        return {
+            embeds: [skinEmbed],
+            components: [row1, row2]
+        };
+    }
+
+    // Filter berdasarkan range huruf jika ada
+    let displayTitle = catName.toUpperCase();
+    if (rangeFilter === 'AE') {
+        filteredItems = filteredItems.filter(i => i.name.match(/^[a-eA-E]/));
+        displayTitle = 'SKIN FISH IT (A - E)';
+    } else if (rangeFilter === 'FS') {
+        filteredItems = filteredItems.filter(i => i.name.match(/^[f-sF-S]/));
+        displayTitle = 'SKIN FISH IT (F - S)';
+    } else if (rangeFilter === 'TZ') {
+        filteredItems = filteredItems.filter(i => i.name.match(/^[t-zT-Z]/));
+        displayTitle = 'SKIN FISH IT (T - Z)';
+    }
+
+    let itemsListStr = '';
+    filteredItems.forEach((item, index) => {
+        const itemEmoji = getItemEmoji(item);
+        const isHeld = item.available === false || item.hold === true;
+        const priceStr = isHeld ? '`⛔ DITAHAN`' : `\`Rp ${item.price.toLocaleString('id-ID')}\``;
+        itemsListStr += `**${index + 1}.** ${itemEmoji} **${item.name}** — ${priceStr}\n`;
+    });
+
+    const categoryEmbed = new EmbedBuilder()
+        .setTitle(`${emoji}  BEBEY STORE — KATALOG ${displayTitle}`)
+        .setColor(0x3498DB)
+        .setDescription(
+            `Berikut adalah daftar seluruh menu & harga produk untuk kategori **${emoji} ${displayTitle}**:\n\n` +
+            itemsListStr + '\n' +
+            `📌 **Petunjuk:** Silakan pilih produk dari menu dropdown di bawah untuk dimasukkan ke keranjang belanja:`
+        )
+        .setTimestamp()
+        .setFooter({ text: `💖 Bebey Store Catalog • ${displayTitle}` });
+
+    const selectOptions = filteredItems.map(item => {
         const itemEmoji = getItemEmoji(item);
         const parsed = parseEmoji(itemEmoji);
         const isHeld = item.available === false || item.hold === true;
@@ -387,14 +507,22 @@ function buildCategorySubMenuEphemeral(items, catName) {
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('select_shop_item')
-        .setPlaceholder(`🛒 Pilih Produk ${catName === 'ALL' ? 'Semua Produk' : catName}...`)
-        .addOptions(selectOptions);
+        .setPlaceholder(`🛒 Pilih Produk ${displayTitle}...`)
+        .addOptions(selectOptions.slice(0, 25));
 
     const selectRow = new ActionRowBuilder().addComponents(selectMenu);
 
+    const isSkinCategory = catName.toLowerCase() === 'skin fish it';
+    const btnBack = new ButtonBuilder()
+        .setCustomId(isSkinCategory ? 'back_to_subcat_Skin Fish It' : 'back_to_main_cat')
+        .setLabel(isSkinCategory ? '⬅️ Kembali ke Kelompok Skin' : '⬅️ Kembali')
+        .setStyle(ButtonStyle.Secondary);
+
+    const btnRow = new ActionRowBuilder().addComponents(btnBack);
+
     return {
-        content: content,
-        components: [selectRow]
+        embeds: [categoryEmbed],
+        components: [selectRow, btnRow]
     };
 }
 
@@ -402,6 +530,7 @@ module.exports = {
     savePanelLocation,
     saveCatalogLocation,
     saveLeaderboardLocation,
+    resetLeaderboardTime,
     getPanelLocation,
     updateGlobalPanel,
     buildCatalogPanelComponents,
@@ -409,6 +538,10 @@ module.exports = {
     getAllCategoryEmojis,
     getCategoryEmoji,
     setCategoryEmoji,
+    getAllCategoryConfigs,
+    getCategoryConfig,
+    setCategoryConfig,
+    isCategoryQuantityAllowed,
     getItemEmoji,
     parseEmoji
 };

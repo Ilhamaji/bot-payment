@@ -1,0 +1,38 @@
+{
+    "Skin Fish It": {
+        "emoji": "🗡️",
+        "allowQuantity": true
+    },
+    "Pet Fish It": {
+        "emoji": "🐾",
+        "allowQuantity": true
+    },
+    "Perahu & Item Fish It": {
+        "emoji": "⛵",
+        "allowQuantity": true
+    },
+    "Gamepass Fish It": {
+        "emoji": "🎟️",
+        "allowQuantity": false
+    },
+    "Robux Via Usn": {
+        "emoji": "💎",
+        "allowQuantity": false
+    },
+    "Joki Fish It": {
+        "emoji": "⚡",
+        "allowQuantity": false
+    },
+    "PTPT": {
+        "emoji": "🤝",
+        "allowQuantity": false
+    },
+    "Akun Fish It": {
+        "emoji": "👤",
+        "allowQuantity": false
+    },
+    "Token": {
+        "emoji": "🪙",
+        "allowQuantity": true
+    }
+}

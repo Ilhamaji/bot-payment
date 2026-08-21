@@ -92,16 +92,19 @@ async function getTopSpenders(limit = 10) {
   try {
     delete require.cache[require.resolve('../config/items')];
     const catalogItems = require('../config/items');
+    const { getPanelLocation } = require('./panelManager');
+    const loc = getPanelLocation();
+    const resetAt = loc && loc.leaderboardResetAt ? new Date(loc.leaderboardResetAt) : null;
 
     let { data, error } = await supabase
       .from('purchases')
-      .select('discord_username, roblox_username, item_name, price')
+      .select('discord_username, roblox_username, item_name, price, created_at')
       .eq('status', 'fulfilled');
 
     if (error) {
       const res = await supabase
         .from('purchases')
-        .select('roblox_username, item_name')
+        .select('roblox_username, item_name, created_at')
         .eq('status', 'fulfilled');
       data = res.data;
       error = res.error;
@@ -109,6 +112,14 @@ async function getTopSpenders(limit = 10) {
 
     if (error || !data) {
       return [];
+    }
+
+    // Filter transaksi jika leaderboard pernah di-reset oleh Admin
+    if (resetAt) {
+      data = data.filter(row => {
+        if (!row.created_at) return true;
+        return new Date(row.created_at) >= resetAt;
+      });
     }
 
     const spenderMap = {};

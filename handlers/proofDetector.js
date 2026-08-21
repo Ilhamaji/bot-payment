@@ -13,16 +13,16 @@ async function handleProofMessageDetection(message, client) {
 
 	const imageAttachment = message.attachments.find(a => a.contentType && a.contentType.startsWith('image/'));
 
-	// 1. Deteksi Foto Screenshot Bukti Pengiriman oleh Admin di Admin Channel
+	// 1. Deteksi Balasan (Reply) Admin di Admin Channel untuk Bukti Pengiriman Item
 	const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
 	const isAdminChannel = adminChannelId ? (message.channelId === adminChannelId) : true;
 
-	if (imageAttachment && isAdmin(message.author.id) && isAdminChannel) {
-		let targetMsg = null;
-		let matchedOrderId = null;
-
-		// A. Jika Admin me-reply pesan notifikasi transaksi
+	if (isAdmin(message.author.id) && isAdminChannel) {
+		// A. Jika Admin me-reply pesan notifikasi transaksi bot
 		if (message.reference && message.reference.messageId) {
+			let targetMsg = null;
+			let matchedOrderId = null;
+
 			try {
 				const referencedMsg = await message.channel.messages.fetch(message.reference.messageId);
 				if (referencedMsg && referencedMsg.embeds.length > 0) {
@@ -32,46 +32,42 @@ async function handleProofMessageDetection(message, client) {
 					if (orderField) {
 						matchedOrderId = orderField.value.replace(/`/g, '').trim().toUpperCase();
 					} else if (embed.description) {
-						const match = embed.description.match(/`([A-Z0-9]+-[A-Z0-9]+)`/);
-						if (match) matchedOrderId = match[1];
+						const match = embed.description.match(/`([A-Z0-9_-]+-[A-Z0-9]+)`/);
+						if (match) matchedOrderId = match[1].toUpperCase();
 					}
 				}
 			} catch (e) {}
-		}
 
-		// B. Jika tidak me-reply, cari dari pending map atau 10 pesan terdekat
-		if (!matchedOrderId) {
-			for (const [key, data] of pendingAdminDeliveryProof.entries()) {
-				if (data.channelId === message.channelId || message.content.toUpperCase().includes(key)) {
-					matchedOrderId = key;
-					targetMsg = data.originalMessage;
-					break;
+			if (!matchedOrderId && pendingAdminDeliveryProof.size > 0) {
+				for (const [key, data] of pendingAdminDeliveryProof.entries()) {
+					if (data.channelId === message.channelId) {
+						matchedOrderId = key;
+						targetMsg = data.originalMessage;
+						break;
+					}
 				}
 			}
-		}
 
-		if (!matchedOrderId) {
-			const fetched = await message.channel.messages.fetch({ limit: 10 });
-			const orderMsg = fetched.find(m => m.embeds.length > 0 && m.embeds[0].title && (m.embeds[0].title.includes('VERIFIKASI BUKTI') || m.embeds[0].title.includes('DI-APPROVE')));
-			if (orderMsg) {
-				const field = orderMsg.embeds[0].fields?.find(f => f.name.includes('ORDER ID'));
-				if (field) {
-					matchedOrderId = field.value.replace(/`/g, '').trim().toUpperCase();
-					targetMsg = orderMsg;
+			if (matchedOrderId) {
+				if (!imageAttachment) {
+					await message.reply({
+						content: `⚠️ **GAGAL APPROVE!** Mohon **lampirkan/upload file gambar (attachment foto screenshot pengiriman)** saat membalas (reply) chat notifikasi transaksi dari bot. Teks / URL link saja tidak diterima!`
+					});
+					return;
 				}
+
+				const proofUrl = imageAttachment.url;
+				const notes = message.content ? message.content.trim() : '';
+
+				pendingAdminDeliveryProof.delete(matchedOrderId);
+
+				await executeOrderApproval(client, matchedOrderId, proofUrl, notes, message.author, targetMsg, null);
+
+				await message.reply({
+					content: `✅ **BUKTI PENGIRIMAN DI-APPROVE!** Foto screenshot bukti pengiriman item untuk order \`${matchedOrderId}\` telah berhasil dikirimkan ke channel tiket pembeli!`
+				});
+				return;
 			}
-		}
-
-		if (matchedOrderId) {
-			const proofUrl = imageAttachment.url;
-			pendingAdminDeliveryProof.delete(matchedOrderId);
-
-			await executeOrderApproval(client, matchedOrderId, proofUrl, '', message.author, targetMsg, null);
-
-			await message.reply({
-				content: `✅ **BUKTI PENGIRIMAN TERKIRIM!** Foto bukti pengiriman item untuk transaction \`${matchedOrderId}\` telah berhasil dikirimkan ke channel tiket pembeli!`
-			});
-			return;
 		}
 	}
 

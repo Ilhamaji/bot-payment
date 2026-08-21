@@ -80,10 +80,10 @@ function buildAdminDashboardComponents(userId) {
 
 	const row2 = new ActionRowBuilder().addComponents(btnEditCat, btnDelCat, btnSendPanel, btnSendLB);
 
-	// Row 3: Laporan & Kelola Admin
+	// Row 3: Laporan, Kelola Admin & Leaderboard
 	const btnExportReport = new ButtonBuilder()
 		.setCustomId('ap_btn_exportreport')
-		.setLabel('📊 Export Laporan Excel')
+		.setLabel('📊 Export Excel')
 		.setStyle(ButtonStyle.Success);
 
 	const btnManageAdmin = new ButtonBuilder()
@@ -91,12 +91,17 @@ function buildAdminDashboardComponents(userId) {
 		.setLabel('👑 Kelola Admin')
 		.setStyle(ButtonStyle.Secondary);
 
+	const btnResetLB = new ButtonBuilder()
+		.setCustomId('ap_btn_resetlb')
+		.setLabel('🏆 Reset Leaderboard')
+		.setStyle(ButtonStyle.Danger);
+
 	const btnRefresh = new ButtonBuilder()
 		.setCustomId('ap_btn_refresh')
 		.setLabel('🔄 Refresh GUI')
 		.setStyle(ButtonStyle.Secondary);
 
-	const row3 = new ActionRowBuilder().addComponents(btnExportReport, btnManageAdmin, btnRefresh);
+	const row3 = new ActionRowBuilder().addComponents(btnExportReport, btnManageAdmin, btnResetLB, btnRefresh);
 
 	return [row1, row2, row3];
 }
