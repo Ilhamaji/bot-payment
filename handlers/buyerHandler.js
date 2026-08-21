@@ -120,22 +120,9 @@ async function sendPsGuideEmbedIfNeeded(interaction, orderId) {
 		selectedItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
 	}
 
-	function isPrivateServerNeeded(item) {
-		if (!item) return false;
-		if (item.usePrivateServer === false) return false;
-		if (item.usePrivateServer === true) return true;
-		if (item.privateServerUrl && item.privateServerUrl.trim() !== '') return true;
-
-		const cat = (item.category || '').toLowerCase();
-		if (cat.includes('robux') || item.requireLimitCheck === true) {
-			return false;
-		}
-		return true;
-	}
-
-	const { getGlobalPrivateServerUrl } = require('../services/panelManager');
+	const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('../services/panelManager');
 	const globalPsUrl = getGlobalPrivateServerUrl();
-	const isPsEnabled = isPrivateServerNeeded(selectedItem);
+	const isPsEnabled = selectedItem ? isCategoryPrivateServerAllowed(selectedItem.category || 'General') : false;
 	const activePsUrl = (isPsEnabled && globalPsUrl && globalPsUrl.trim() !== '') 
 		? globalPsUrl.trim() 
 		: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');

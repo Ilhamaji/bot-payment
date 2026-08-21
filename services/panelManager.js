@@ -29,21 +29,27 @@ function getAllCategoryConfigs() {
  * Membaca detail konfigurasi kategori spesifik (emoji & allowQuantity)
  */
 function getCategoryConfig(categoryName) {
-    if (!categoryName) return { emoji: '📁', allowQuantity: false };
+    if (!categoryName) return { emoji: '📁', allowQuantity: false, usePrivateServer: false };
     const configs = getAllCategoryConfigs();
     const config = configs[categoryName];
     if (config) {
         if (typeof config === 'string') {
-            return { emoji: config, allowQuantity: false };
+            return { emoji: config, allowQuantity: false, usePrivateServer: false };
         }
+        const catLower = categoryName.toLowerCase();
+        const defaultPs = !catLower.includes('robux');
+
         return {
             emoji: config.emoji || '📁',
-            allowQuantity: config.allowQuantity === true
+            allowQuantity: config.allowQuantity === true,
+            usePrivateServer: config.usePrivateServer !== undefined ? config.usePrivateServer === true : defaultPs
         };
     }
+    const catLower = (categoryName || '').toLowerCase();
     return {
         emoji: '📁',
-        allowQuantity: false
+        allowQuantity: false,
+        usePrivateServer: !catLower.includes('robux')
     };
 }
 
@@ -53,11 +59,12 @@ function getCategoryConfig(categoryName) {
 function setCategoryConfig(categoryName, newConfig) {
     if (!categoryName) return;
     const configs = getAllCategoryConfigs();
-    const current = configs[categoryName] || { emoji: '📁', allowQuantity: false };
+    const current = configs[categoryName] || { emoji: '📁', allowQuantity: false, usePrivateServer: false };
 
     configs[categoryName] = {
         emoji: newConfig.emoji !== undefined ? newConfig.emoji : (current.emoji || '📁'),
-        allowQuantity: newConfig.allowQuantity !== undefined ? newConfig.allowQuantity : current.allowQuantity
+        allowQuantity: newConfig.allowQuantity !== undefined ? newConfig.allowQuantity : current.allowQuantity,
+        usePrivateServer: newConfig.usePrivateServer !== undefined ? newConfig.usePrivateServer : (current.usePrivateServer === true)
     };
 
     try {
@@ -74,6 +81,14 @@ function setCategoryConfig(categoryName, newConfig) {
 function isCategoryQuantityAllowed(categoryName) {
     const config = getCategoryConfig(categoryName);
     return config.allowQuantity === true;
+}
+
+/**
+ * Cek apakah item dalam kategori ini bisa menggunakan private server
+ */
+function isCategoryPrivateServerAllowed(categoryName) {
+    const config = getCategoryConfig(categoryName);
+    return config.usePrivateServer === true;
 }
 
 /**
@@ -569,6 +584,7 @@ module.exports = {
     getCategoryConfig,
     setCategoryConfig,
     isCategoryQuantityAllowed,
+    isCategoryPrivateServerAllowed,
     getItemEmoji,
     parseEmoji
 };

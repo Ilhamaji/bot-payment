@@ -356,12 +356,13 @@ function buildCartEmbedAndComponents(orderId) {
 		? `👤 **Username Roblox:** \`${cart.robloxUsername}\`\n\n` 
 		: '';
 
-	const { getGlobalPrivateServerUrl } = require('./panelManager');
+	const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('./panelManager');
 	const globalPsUrl = getGlobalPrivateServerUrl();
 
 	let activePsUrl = null;
 	for (const item of cart.items) {
-		if (isPrivateServerNeededForItem(item) && globalPsUrl && globalPsUrl.trim() !== '') {
+		const isCatPsAllowed = isCategoryPrivateServerAllowed(item.category || 'General');
+		if (isCatPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') {
 			activePsUrl = globalPsUrl.trim();
 			break;
 		} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {

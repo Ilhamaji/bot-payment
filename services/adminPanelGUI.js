@@ -43,37 +43,44 @@ function buildCategorySettingEmbedAndComponents(catName) {
 	const config = getCategoryConfig(catName);
 	const catEmoji = config.emoji || '📁';
 	const isQtyAllowed = config.allowQuantity === true;
+	const isPsAllowed = config.usePrivateServer === true;
 
 	const embed = new EmbedBuilder()
 		.setTitle(`📁  PENGATURAN KATEGORI: ${catName}`)
-		.setColor(isQtyAllowed ? 0x2ECC71 : 0x3498DB)
+		.setColor(isQtyAllowed || isPsAllowed ? 0x2ECC71 : 0x3498DB)
 		.setDescription(
-			`Kelola pengaturan nama dan mode pembelian (jumlah / keranjang) untuk kategori **${catName}**.\n\n` +
-			`💡 *Klik tombol **[ 🛒 Toggle Keranjang ]** di bawah untuk menentukan apakah pembeli dapat membeli beberapa item sekaligus dalam 1 tiket.*`
+			`Kelola nama, mode keranjang, dan pengaktifan Private World Toko untuk kategori **${catName}**.\n\n` +
+			`💡 *Klik **[ 🌐 Private World ]** di bawah untuk mengaktifkan/mematikan Link Private World untuk SELURUH produk dalam kategori ini.*`
 		)
 		.addFields(
 			{ name: '📁 Nama Kategori', value: `${catEmoji} \`${catName}\``, inline: true },
-			{ name: '🛒 Mode Pembelian', value: isQtyAllowed ? '`🟢 BISA BELI BEBERAPA (Multi-Qty / Keranjang)`' : '`🔴 HANYA 1 PCS (Single Item)`', inline: true }
+			{ name: '🛒 Mode Pembelian', value: isQtyAllowed ? '`🟢 KERANJANG (Multi-Qty)`' : '`🔴 SINGLE ITEM (1 Pcs)`', inline: true },
+			{ name: '🌐 Private World Toko', value: isPsAllowed ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`', inline: true }
 		)
 		.setTimestamp()
 		.setFooter({ text: '⚡ Bebey Store Admin Control Center' });
 
 	const renameBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_renamecat_${catName}`)
-		.setLabel('✏️ Ubah Nama Kategori')
+		.setLabel('✏️ Ubah Nama')
 		.setStyle(ButtonStyle.Primary);
 
 	const toggleQtyBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_toggle_qty_${catName}`)
-		.setLabel(isQtyAllowed ? '🛒 Mode Keranjang: ON 🟢' : '🛒 Mode Keranjang: OFF 🔴')
+		.setLabel(isQtyAllowed ? '🛒 Keranjang: ON 🟢' : '🛒 Keranjang: OFF 🔴')
 		.setStyle(isQtyAllowed ? ButtonStyle.Success : ButtonStyle.Secondary);
+
+	const togglePsBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_toggle_ps_${catName}`)
+		.setLabel(isPsAllowed ? '🌐 Private World: ON 🟢' : '🌐 Private World: OFF 🔴')
+		.setStyle(isPsAllowed ? ButtonStyle.Success : ButtonStyle.Secondary);
 
 	const doneBtn = new ButtonBuilder()
 		.setCustomId('ap_btn_done_cat')
 		.setLabel('✅ Selesai Edit')
 		.setStyle(ButtonStyle.Secondary);
 
-	const row = new ActionRowBuilder().addComponents(renameBtn, toggleQtyBtn, doneBtn);
+	const row = new ActionRowBuilder().addComponents(renameBtn, toggleQtyBtn, togglePsBtn, doneBtn);
 
 	return { embed, components: [row] };
 }
@@ -115,13 +122,12 @@ function buildItemCategorySelectMenu(item) {
 
 function buildItemCheckboxMenu(item) {
 	const isHeld = item.available === false || item.hold === true;
-	const usePs = item.usePrivateServer !== false;
 
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId(`ap_checkbox_opts_${item.id}`)
 		.setPlaceholder('☑️ Centang Opsi Setting (Multi-Select Checkbox)')
 		.setMinValues(0)
-		.setMaxValues(4)
+		.setMaxValues(3)
 		.addOptions(
 			new StringSelectMenuOptionBuilder()
 				.setLabel('Perlu Username Roblox')
@@ -135,12 +141,6 @@ function buildItemCheckboxMenu(item) {
 				.setDescription('Pembeli akan melewati panduan Cek Limit Roblox')
 				.setEmoji('🔍')
 				.setDefault(item.requireLimitCheck !== false),
-			new StringSelectMenuOptionBuilder()
-				.setLabel('Gunakan Private World Toko')
-				.setValue('req_ps')
-				.setDescription('Tampilkan Link Private World Toko saat pembeli membeli produk ini')
-				.setEmoji('🌐')
-				.setDefault(usePs),
 			new StringSelectMenuOptionBuilder()
 				.setLabel('Tahan Produk (Non-aktifkan Sementara)')
 				.setValue('req_hold')
@@ -172,13 +172,15 @@ function buildItemDoneButton(item) {
 }
 
 function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
+	const { isCategoryPrivateServerAllowed } = require('./panelManager');
 	const catEmoji = getCategoryEmoji(item.category || 'General');
 	const effectiveEmoji = getItemEmoji(item);
 	const reqUserLabel = item.requireUsername !== false ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
 	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
 	const isHeld = item.available === false || item.hold === true;
 	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
-	const usePsLabel = item.usePrivateServer !== false ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`';
+	const isCatPsActive = isCategoryPrivateServerAllowed(item.category || 'General');
+	const usePsLabel = isCatPsActive ? '`🟢 AKTIF (Ikut Kategori)`' : '`🔴 NON-AKTIF (Ikut Kategori)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
 
 	const embed = new EmbedBuilder()
@@ -194,7 +196,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 			{ name: '📁 Kategori', value: `${catEmoji} \`${item.category || 'General'}\``, inline: true },
 			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
 			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
-			{ name: '🌐 Private World Toko', value: usePsLabel, inline: true },
+			{ name: '🌐 Private World (Kategori)', value: usePsLabel, inline: true },
 			{ name: '⏸️ Status Pembelian', value: statusLabel, inline: true },
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
@@ -464,6 +466,19 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const newAllowQty = !currentConfig.allowQuantity;
 
 			setCategoryConfig(catName, { allowQuantity: newAllowQty });
+			updateGlobalPanel(client);
+
+			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.update({ embeds: [embed], components: components });
+		}
+
+		// Toggle Mode Private World Kategori
+		if (customId.startsWith('ap_btn_toggle_ps_')) {
+			const catName = customId.replace('ap_btn_toggle_ps_', '');
+			const currentConfig = getCategoryConfig(catName);
+			const newPsStatus = !currentConfig.usePrivateServer;
+
+			setCategoryConfig(catName, { usePrivateServer: newPsStatus });
 			updateGlobalPanel(client);
 
 			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
