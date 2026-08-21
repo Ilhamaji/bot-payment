@@ -110,6 +110,49 @@ function removeItemFromDraftCart(userId, itemId, reduceQty = 1) {
 	return draft;
 }
 
+async function sendPsGuideEmbedIfNeeded(interaction, orderId) {
+	delete require.cache[require.resolve('../config/items')];
+	const catalogItems = require('../config/items');
+	const purchase = await getPurchaseById(orderId);
+
+	let selectedItem = null;
+	if (purchase) {
+		selectedItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
+	}
+
+	const { getGlobalPrivateServerUrl } = require('../services/panelManager');
+	const globalPsUrl = getGlobalPrivateServerUrl();
+	const isPsAllowed = !selectedItem || selectedItem.usePrivateServer !== false;
+	const activePsUrl = (isPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') 
+		? globalPsUrl.trim() 
+		: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
+
+	if (activePsUrl && activePsUrl !== '') {
+		const psGuideEmbed = new EmbedBuilder()
+			.setTitle('🌐  PANDUAN TRANSAKSI PRIVATE WORLD / SERVER')
+			.setColor(0x9B59B6)
+			.setDescription(
+				`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
+				`1️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
+				`2️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
+				`3️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
+				`4️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
+				`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
+			)
+			.setTimestamp()
+			.setFooter({ text: `💖 Bebey Store Official • ${orderId}` });
+
+		const psGuideBtn = new ButtonBuilder()
+			.setLabel('🌐 Masuk Private World')
+			.setStyle(ButtonStyle.Link)
+			.setURL(activePsUrl);
+
+		const psGuideRow = new ActionRowBuilder().addComponents(psGuideBtn);
+
+		await interaction.channel.send({ embeds: [psGuideEmbed], components: [psGuideRow] });
+	}
+}
+
 function buildAddItemCategoryComponents(selectedCatName = null) {
 	delete require.cache[require.resolve('../config/items')];
 	const currentItems = require('../config/items');
@@ -664,24 +707,6 @@ async function handleBuyerInteraction(interaction, client) {
 					`Kalau kamu sudah paham, klik **Saya Paham & Setuju**!`;
 			}
 
-			let psButton = null;
-			const { getGlobalPrivateServerUrl } = require('../services/panelManager');
-			const globalPsUrl = getGlobalPrivateServerUrl();
-			const isPsAllowed = !selectedItem || selectedItem.usePrivateServer !== false;
-			const activePsUrl = (isPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') 
-				? globalPsUrl.trim() 
-				: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
-
-			if (activePsUrl && activePsUrl !== '') {
-				notesDescription += `\n\n🌐 **LINK PRIVATE WORLD / SERVER TOKO:**\n[🌐 Klik Untuk Masuk Private World Toko](${activePsUrl})`;
-				try {
-					psButton = new ButtonBuilder()
-						.setLabel('🌐 Masuk Private World')
-						.setStyle(ButtonStyle.Link)
-						.setURL(activePsUrl);
-				} catch (e) {}
-			}
-
 			const notesEmbed = new EmbedBuilder()
 				.setTitle('📌  CATATAN PENTING')
 				.setColor(0xE91E63)
@@ -695,35 +720,8 @@ async function handleBuyerInteraction(interaction, client) {
 				.setStyle(ButtonStyle.Success);
 
 			const agreeRow = new ActionRowBuilder().addComponents(agreeBtn);
-			if (psButton) agreeRow.addComponents(psButton);
 
 			await interaction.channel.send({ embeds: [notesEmbed], components: [agreeRow] });
-
-			if (activePsUrl && activePsUrl !== '') {
-				const psGuideEmbed = new EmbedBuilder()
-					.setTitle('🌐  PANDUAN TRANSAKSI PRIVATE WORLD / SERVER')
-					.setColor(0x9B59B6)
-					.setDescription(
-						`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
-						`1️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
-						`2️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
-						`3️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
-						`4️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
-						`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
-					)
-					.setTimestamp()
-					.setFooter({ text: `💖 Bebey Store Official • ${orderId}` });
-
-				const psGuideBtn = new ButtonBuilder()
-					.setLabel('🌐 Masuk Private World')
-					.setStyle(ButtonStyle.Link)
-					.setURL(activePsUrl);
-
-				const psGuideRow = new ActionRowBuilder().addComponents(psGuideBtn);
-
-				await interaction.channel.send({ embeds: [psGuideEmbed], components: [psGuideRow] });
-			}
-
 			return;
 		}
 
@@ -781,6 +779,9 @@ async function handleBuyerInteraction(interaction, client) {
 					qrisMsg = await interaction.channel.send(qrisCard);
 				}
 				qrisMessages.set(orderId.toUpperCase(), qrisMsg);
+
+				// Kirim Panduan Private World setelah tombol Saya Paham & Setuju ditekan
+				await sendPsGuideEmbedIfNeeded(interaction, orderId);
 				return;
 			}
 
@@ -912,6 +913,7 @@ async function handleBuyerInteraction(interaction, client) {
 				qrisMsg = await interaction.channel.send(qrisCard);
 			}
 			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
+			await sendPsGuideEmbedIfNeeded(interaction, orderId);
 			return;
 		}
 
