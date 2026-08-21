@@ -226,6 +226,23 @@ async function updateRobloxUsername(orderId, robloxUsername) {
   }
 }
 
+async function deletePurchaseById(orderId) {
+  if (useSqlite || !supabase) {
+    return sqlite.deletePurchaseById(orderId);
+  }
+  try {
+    const { error } = await supabase
+      .from('purchases')
+      .delete()
+      .eq('order_id', orderId);
+    if (error) return sqlite.deletePurchaseById(orderId);
+    console.log(`[SUPABASE] Row transaksi ${orderId} berhasil dihapus dari Supabase.`);
+    return true;
+  } catch (e) {
+    return sqlite.deletePurchaseById(orderId);
+  }
+}
+
 module.exports = {
   supabase,
   createPurchase,
@@ -233,5 +250,6 @@ module.exports = {
   getTopSpenders,
   getAllPurchases,
   getPurchaseById,
-  updateRobloxUsername
+  updateRobloxUsername,
+  deletePurchaseById
 };

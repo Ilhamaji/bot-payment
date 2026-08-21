@@ -9,13 +9,36 @@ const {
 	MessageFlags 
 } = require('discord.js');
 const { isAdmin } = require('../services/admins');
-const { updatePurchaseStatus, supabase } = require('../services/supabase');
+const { updatePurchaseStatus, getPurchaseById, deletePurchaseById, supabase } = require('../services/supabase');
 const { executeOrderApproval, pendingAdminDeliveryProof, adminInstructionInteractions } = require('../services/ticketManager');
 
 async function handleAdminInteraction(interaction, client) {
 	// 1. Button Actions (Admin Approve & Reject)
 	if (interaction.isButton()) {
 		const customId = interaction.customId;
+
+		if (customId === 'ap_btn_deletedb_row') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat menghapus row database.', flags: MessageFlags.Ephemeral });
+			}
+
+			const modal = new ModalBuilder()
+				.setCustomId('modal_delete_db_row')
+				.setTitle('HAPUS ROW DATABASE TRANSAKSI');
+
+			const orderIdInput = new TextInputBuilder()
+				.setCustomId('target_order_id')
+				.setLabel("MASUKKAN ORDER ID KHUSUS:")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("Cth: RBX_100-1546 atau SKIN_ENLIGHTENED-1AE2")
+				.setRequired(true);
+
+			const row = new ActionRowBuilder().addComponents(orderIdInput);
+			modal.addComponents(row);
+
+			await interaction.showModal(modal);
+			return true;
+		}
 
 		if (customId.startsWith('admin_approve_')) {
 			if (!isAdmin(interaction.user.id)) {
@@ -99,9 +122,49 @@ async function handleAdminInteraction(interaction, client) {
 		}
 	}
 
-	// 2. Modal Submissions (Admin Approve & Reject Modal)
+	// 2. Modal Submissions (Admin Approve & Reject Modal & Delete DB Row)
 	if (interaction.isModalSubmit()) {
 		const customId = interaction.customId;
+
+		if (customId === 'modal_delete_db_row') {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat menghapus row database.', flags: MessageFlags.Ephemeral });
+			}
+
+			const targetOrderId = interaction.fields.getTextInputValue('target_order_id').trim().toUpperCase();
+			const purchase = await getPurchaseById(targetOrderId);
+
+			if (!purchase) {
+				return interaction.reply({
+					content: `❌ **ORDER ID TIDAK DITEMUKAN!** Data transaksi dengan Order ID \`${targetOrderId}\` tidak terdaftar di database.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
+			const success = await deletePurchaseById(targetOrderId);
+
+			if (success) {
+				const { updateGlobalPanel } = require('../services/panelManager');
+				updateGlobalPanel(client);
+
+				return interaction.reply({
+					content: 
+						`✅ **ROW TRANSAKSI BERHASIL DIHAPUS DARI DATABASE!**\n\n` +
+						`🆔 **Order ID:** \`${targetOrderId}\`\n` +
+						`👤 **Roblox / Buyer:** \`${purchase.roblox_username || purchase.discord_username || 'N/A'}\`\n` +
+						`📦 **Item:** \`${purchase.item_name}\`\n` +
+						`💰 **Harga:** Rp ${(purchase.price || 0).toLocaleString('id-ID')}\n` +
+						`📌 **Status:** \`${purchase.status}\`\n\n` +
+						`Data transaksi ini telah terhapus permanen dari database (SQLite/Supabase).`,
+					flags: MessageFlags.Ephemeral
+				});
+			} else {
+				return interaction.reply({
+					content: `❌ **GAGAL MENGHAPUS!** Terjadi kesalahan saat menghapus data \`${targetOrderId}\` dari database.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+		}
 
 		if (customId.startsWith('modal_approve_delivery_')) {
 			const orderId = customId.replace('modal_approve_delivery_', '');

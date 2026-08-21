@@ -234,11 +234,40 @@ async function updateRobloxUsername(orderId, robloxUsername) {
     }
 }
 
+/**
+ * Hapus data transaksi dari SQLite berdasarkan Order ID
+ */
+async function deletePurchaseById(orderId) {
+    try {
+        if (!orderId) return false;
+        const cleanOrderId = orderId.trim().toUpperCase();
+        if (useNativeSqlite && db) {
+            const stmt = db.prepare(`DELETE FROM purchases WHERE UPPER(order_id) = ?`);
+            const info = stmt.run(cleanOrderId);
+            console.log(`[SQLITE] Row transaksi ${cleanOrderId} berhasil dihapus dari database.`);
+            return info.changes > 0;
+        } else {
+            const list = loadJsonStore();
+            const newList = list.filter(p => (p.order_id || '').toUpperCase() !== cleanOrderId);
+            if (newList.length < list.length) {
+                saveJsonStore(newList);
+                console.log(`[SQLITE JSON] Row transaksi ${cleanOrderId} berhasil dihapus dari JSON store.`);
+                return true;
+            }
+            return false;
+        }
+    } catch (err) {
+        console.error('Error deleting purchase by ID from SQLite:', err);
+        return false;
+    }
+}
+
 module.exports = {
     createPurchase,
     updatePurchaseStatus,
     getTopSpenders,
     getAllPurchases,
     getPurchaseById,
-    updateRobloxUsername
+    updateRobloxUsername,
+    deletePurchaseById
 };

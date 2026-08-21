@@ -103,7 +103,15 @@ function buildAdminDashboardComponents(userId) {
 
 	const row3 = new ActionRowBuilder().addComponents(btnExportReport, btnManageAdmin, btnResetLB, btnRefresh);
 
-	return [row1, row2, row3];
+	// Row 4: Kelola Database
+	const btnDeleteDbRow = new ButtonBuilder()
+		.setCustomId('ap_btn_deletedb_row')
+		.setLabel('🗑️ Hapus Row Database')
+		.setStyle(ButtonStyle.Danger);
+
+	const row4 = new ActionRowBuilder().addComponents(btnDeleteDbRow);
+
+	return [row1, row2, row3, row4];
 }
 
 module.exports = {
