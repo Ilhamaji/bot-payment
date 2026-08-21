@@ -167,6 +167,10 @@ async function handleAdminInteraction(interaction, client) {
 		}
 
 		if (customId.startsWith('modal_approve_delivery_')) {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat memproses pengiriman pesanan.', flags: MessageFlags.Ephemeral });
+			}
+
 			const orderId = customId.replace('modal_approve_delivery_', '');
 			const proofUrl = interaction.fields.getTextInputValue('delivery_proof_url').trim();
 			const deliveryNotes = interaction.fields.getTextInputValue('delivery_notes').trim();
@@ -196,6 +200,10 @@ async function handleAdminInteraction(interaction, client) {
 		}
 
 		if (customId.startsWith('modal_reject_')) {
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat memproses penolakan pesanan.', flags: MessageFlags.Ephemeral });
+			}
+
 			const orderId = customId.replace('modal_reject_', '');
 			const reasonInput = interaction.fields.getTextInputValue('reject_reason').trim();
 			const rejectReason = reasonInput !== '' ? reasonInput : 'Foto resi transfer kurang jelas / tidak sesuai ketentuan.';
