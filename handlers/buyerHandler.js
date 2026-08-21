@@ -114,10 +114,16 @@ function buildAddItemCategoryComponents(selectedCatName = null) {
 	delete require.cache[require.resolve('../config/items')];
 	const currentItems = require('../config/items');
 
-	const categories = [...new Set(currentItems.map(i => i.category || 'General'))];
-	const activeCategory = selectedCatName || categories[0] || 'General';
+	// Filter HANYA kategori yang mode keranjangnya diaktifkan (allowQuantity === true)
+	const allCategories = [...new Set(currentItems.map(i => i.category || 'General'))];
+	const allowedCategories = allCategories.filter(cat => getPanelManager().isCategoryQuantityAllowed(cat));
 
-	const categoryOptions = categories.map(cat => {
+	const targetCategories = allowedCategories.length > 0 ? allowedCategories : allCategories;
+	const activeCategory = (selectedCatName && targetCategories.some(c => c.toLowerCase() === selectedCatName.toLowerCase()))
+		? selectedCatName
+		: (targetCategories[0] || 'General');
+
+	const categoryOptions = targetCategories.map(cat => {
 		const catEmoji = getPanelManager().getCategoryEmoji(cat);
 		return new StringSelectMenuOptionBuilder()
 			.setLabel(`Kategori: ${cat}`)
