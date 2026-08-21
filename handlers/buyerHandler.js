@@ -765,6 +765,9 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			if (!requireLimitCheck) {
+				// Kirim Panduan Private World terlebih dahulu (jika item memerlukan Private World)
+				await sendPsGuideEmbedIfNeeded(interaction, orderId);
+
 				const qrisData = buildQrisPaymentEmbedForCart(orderId);
 				let qrisMsg;
 				if (qrisData) {
@@ -779,9 +782,6 @@ async function handleBuyerInteraction(interaction, client) {
 					qrisMsg = await interaction.channel.send(qrisCard);
 				}
 				qrisMessages.set(orderId.toUpperCase(), qrisMsg);
-
-				// Kirim Panduan Private World setelah tombol Saya Paham & Setuju ditekan
-				await sendPsGuideEmbedIfNeeded(interaction, orderId);
 				return;
 			}
 
@@ -899,6 +899,9 @@ async function handleBuyerInteraction(interaction, client) {
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
 			}
 
+			// Kirim Panduan Private World terlebih dahulu (jika item memerlukan Private World)
+			await sendPsGuideEmbedIfNeeded(interaction, orderId);
+
 			const qrisData = buildQrisPaymentEmbedForCart(orderId);
 			let qrisMsg;
 			if (qrisData) {
@@ -913,7 +916,6 @@ async function handleBuyerInteraction(interaction, client) {
 				qrisMsg = await interaction.channel.send(qrisCard);
 			}
 			qrisMessages.set(orderId.toUpperCase(), qrisMsg);
-			await sendPsGuideEmbedIfNeeded(interaction, orderId);
 			return;
 		}
 
