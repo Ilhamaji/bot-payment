@@ -44,18 +44,22 @@ function buildCategorySettingEmbedAndComponents(catName) {
 	const catEmoji = config.emoji || '📁';
 	const isQtyAllowed = config.allowQuantity === true;
 	const isPsAllowed = config.usePrivateServer === true;
+	const isUserReq = config.requireUsername === true;
+	const isLimitReq = config.requireLimitCheck === true;
 
 	const embed = new EmbedBuilder()
 		.setTitle(`📁  PENGATURAN KATEGORI: ${catName}`)
-		.setColor(isQtyAllowed || isPsAllowed ? 0x2ECC71 : 0x3498DB)
+		.setColor(0x3498DB)
 		.setDescription(
-			`Kelola nama, mode keranjang, dan pengaktifan Private World Toko untuk kategori **${catName}**.\n\n` +
-			`💡 *Klik **[ 🌐 Private World ]** di bawah untuk mengaktifkan/mematikan Link Private World untuk SELURUH produk dalam kategori ini.*`
+			`Kelola seluruh sakelar pengaturan untuk kategori **${catName}**.\n\n` +
+			`💡 *Seluruh sakelar (Username, Cek Limit, Private World, Keranjang) dikelola secara otomatis per-Kategori.*`
 		)
 		.addFields(
 			{ name: '📁 Nama Kategori', value: `${catEmoji} \`${catName}\``, inline: true },
 			{ name: '🛒 Mode Pembelian', value: isQtyAllowed ? '`🟢 KERANJANG (Multi-Qty)`' : '`🔴 SINGLE ITEM (1 Pcs)`', inline: true },
-			{ name: '🌐 Private World Toko', value: isPsAllowed ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF (Sembunyikan)`', inline: true }
+			{ name: '👤 Username Roblox', value: isUserReq ? '`🟢 WAJIB (Mengisi Usn)`' : '`🔴 TIDAK PERLU`', inline: true },
+			{ name: '🔍 Cek Limit Roblox', value: isLimitReq ? '`🟢 WAJIB (Cek Limit)`' : '`🔴 TIDAK PERLU`', inline: true },
+			{ name: '🌐 Private World Toko', value: isPsAllowed ? '`🟢 AKTIF (Tampilkan Link)`' : '`🔴 NON-AKTIF`', inline: true }
 		)
 		.setTimestamp()
 		.setFooter({ text: '⚡ Bebey Store Admin Control Center' });
@@ -70,6 +74,16 @@ function buildCategorySettingEmbedAndComponents(catName) {
 		.setLabel(isQtyAllowed ? '🛒 Keranjang: ON 🟢' : '🛒 Keranjang: OFF 🔴')
 		.setStyle(isQtyAllowed ? ButtonStyle.Success : ButtonStyle.Secondary);
 
+	const toggleUserBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_toggle_user_${catName}`)
+		.setLabel(isUserReq ? '👤 Username: ON 🟢' : '👤 Username: OFF 🔴')
+		.setStyle(isUserReq ? ButtonStyle.Success : ButtonStyle.Secondary);
+
+	const toggleLimitBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_toggle_limit_${catName}`)
+		.setLabel(isLimitReq ? '🔍 Cek Limit: ON 🟢' : '🔍 Cek Limit: OFF 🔴')
+		.setStyle(isLimitReq ? ButtonStyle.Success : ButtonStyle.Secondary);
+
 	const togglePsBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_toggle_ps_${catName}`)
 		.setLabel(isPsAllowed ? '🌐 Private World: ON 🟢' : '🌐 Private World: OFF 🔴')
@@ -80,9 +94,10 @@ function buildCategorySettingEmbedAndComponents(catName) {
 		.setLabel('✅ Selesai Edit')
 		.setStyle(ButtonStyle.Secondary);
 
-	const row = new ActionRowBuilder().addComponents(renameBtn, toggleQtyBtn, togglePsBtn, doneBtn);
+	const row1 = new ActionRowBuilder().addComponents(renameBtn, toggleQtyBtn, toggleUserBtn);
+	const row2 = new ActionRowBuilder().addComponents(toggleLimitBtn, togglePsBtn, doneBtn);
 
-	return { embed, components: [row] };
+	return { embed, components: [row1, row2] };
 }
 
 function buildItemCategorySelectMenu(item) {
@@ -123,33 +138,12 @@ function buildItemCategorySelectMenu(item) {
 function buildItemCheckboxMenu(item) {
 	const isHeld = item.available === false || item.hold === true;
 
-	const selectMenu = new StringSelectMenuBuilder()
-		.setCustomId(`ap_checkbox_opts_${item.id}`)
-		.setPlaceholder('☑️ Centang Opsi Setting (Multi-Select Checkbox)')
-		.setMinValues(0)
-		.setMaxValues(3)
-		.addOptions(
-			new StringSelectMenuOptionBuilder()
-				.setLabel('Perlu Username Roblox')
-				.setValue('req_username')
-				.setDescription('Pembeli wajib mengisi Username Roblox saat membuat tiket')
-				.setEmoji('👤')
-				.setDefault(item.requireUsername !== false),
-			new StringSelectMenuOptionBuilder()
-				.setLabel('Perlu Cek Limit Roblox')
-				.setValue('req_limit')
-				.setDescription('Pembeli akan melewati panduan Cek Limit Roblox')
-				.setEmoji('🔍')
-				.setDefault(item.requireLimitCheck !== false),
-			new StringSelectMenuOptionBuilder()
-				.setLabel('Tahan Produk (Non-aktifkan Sementara)')
-				.setValue('req_hold')
-				.setDescription('Produk tidak akan bisa dibeli oleh pembeli untuk sementara')
-				.setEmoji('⛔')
-				.setDefault(isHeld)
-		);
+	const toggleHoldBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_toggle_hold_${item.id}`)
+		.setLabel(isHeld ? '⛔ Status Produk: DITAHAN (Non-aktif)' : '🟢 Status Produk: AKTIF (Bisa Dibeli)')
+		.setStyle(isHeld ? ButtonStyle.Danger : ButtonStyle.Success);
 
-	return new ActionRowBuilder().addComponents(selectMenu);
+	return new ActionRowBuilder().addComponents(toggleHoldBtn);
 }
 
 function buildItemDoneButton(item) {
@@ -172,15 +166,25 @@ function buildItemDoneButton(item) {
 }
 
 function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
-	const { isCategoryPrivateServerAllowed } = require('./panelManager');
-	const catEmoji = getCategoryEmoji(item.category || 'General');
-	const effectiveEmoji = getItemEmoji(item);
-	const reqUserLabel = item.requireUsername !== false ? '`✅ Ya (Wajib Username)`' : '`❌ Tidak Perlu`';
-	const reqLimitLabel = item.requireLimitCheck !== false ? '`✅ Ya (Cek Limit)`' : '`❌ Tidak Perlu`';
+	const { 
+		isCategoryPrivateServerAllowed, 
+		isCategoryUsernameRequired, 
+		isCategoryLimitCheckRequired 
+	} = require('./panelManager');
+
+	const catName = item.category || 'General';
+	const catEmoji = getCategoryEmoji(catName);
+
+	const isUserReq = isCategoryUsernameRequired(catName);
+	const isLimitReq = isCategoryLimitCheckRequired(catName);
+	const isPsAllowed = isCategoryPrivateServerAllowed(catName);
+
+	const reqUserLabel = isUserReq ? '`🟢 WAJIB (Ikut Kategori)`' : '`🔴 TIDAK PERLU (Ikut Kategori)`';
+	const reqLimitLabel = isLimitReq ? '`🟢 YA (Ikut Kategori)`' : '`🔴 TIDAK PERLU (Ikut Kategori)`';
+	const usePsLabel = isPsAllowed ? '`🟢 AKTIF (Ikut Kategori)`' : '`🔴 NON-AKTIF (Ikut Kategori)`';
+
 	const isHeld = item.available === false || item.hold === true;
 	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
-	const isCatPsActive = isCategoryPrivateServerAllowed(item.category || 'General');
-	const usePsLabel = isCatPsActive ? '`🟢 AKTIF (Ikut Kategori)`' : '`🔴 NON-AKTIF (Ikut Kategori)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
 
 	const embed = new EmbedBuilder()
@@ -188,20 +192,20 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 		.setColor(isHeld ? 0xED4245 : 0x2ECC71)
 		.setDescription(
 			`Berikut adalah detail & setting produk **${item.name}**:\n\n` +
-			`💡 *Klik **✏️ Edit Detail & Nama** untuk mengubah harga/nama, centang opsi di bawah, lalu tekan **✅ Selesai Edit**!*`
+			`💡 *Setting Username, Limit, & Private World otomatis mengikuti Kategori **${catName}**.*`
 		)
 		.addFields(
 			{ name: '🆔 ID Item', value: `\`${item.id}\``, inline: true },
 			{ name: '💰 Harga', value: `**Rp ${(item.price || 0).toLocaleString('id-ID')}**`, inline: true },
-			{ name: '📁 Kategori', value: `${catEmoji} \`${item.category || 'General'}\``, inline: true },
+			{ name: '📁 Kategori', value: `${catEmoji} \`${catName}\``, inline: true },
 			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
 			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
-			{ name: '🌐 Private World (Kategori)', value: usePsLabel, inline: true },
+			{ name: '🌐 Private World', value: usePsLabel, inline: true },
 			{ name: '⏸️ Status Pembelian', value: statusLabel, inline: true },
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
 		.setTimestamp()
-		.setFooter({ text: 'Tekan "✅ Selesai Edit" untuk menyimpan dan membersihkan tampilan.' });
+		.setFooter({ text: '⚡ Bebey Store Admin Control Center' });
 
 	return embed;
 }
@@ -482,6 +486,55 @@ async function handleAdminPanelInteraction(interaction, client) {
 			updateGlobalPanel(client);
 
 			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.update({ embeds: [embed], components: components });
+		}
+
+		// Toggle Username Roblox Wajib per Kategori
+		if (customId.startsWith('ap_btn_toggle_user_')) {
+			const catName = customId.replace('ap_btn_toggle_user_', '');
+			const currentConfig = getCategoryConfig(catName);
+			const newStatus = !currentConfig.requireUsername;
+
+			setCategoryConfig(catName, { requireUsername: newStatus });
+			updateGlobalPanel(client);
+
+			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.update({ embeds: [embed], components: components });
+		}
+
+		// Toggle Cek Limit Roblox per Kategori
+		if (customId.startsWith('ap_btn_toggle_limit_')) {
+			const catName = customId.replace('ap_btn_toggle_limit_', '');
+			const currentConfig = getCategoryConfig(catName);
+			const newStatus = !currentConfig.requireLimitCheck;
+
+			setCategoryConfig(catName, { requireLimitCheck: newStatus });
+			updateGlobalPanel(client);
+
+			const { embed, components } = buildCategorySettingEmbedAndComponents(catName);
+			return interaction.update({ embeds: [embed], components: components });
+		}
+
+		// Toggle Status Tahan Produk (Hold) per Item
+		if (customId.startsWith('ap_btn_toggle_hold_')) {
+			const itemId = customId.replace('ap_btn_toggle_hold_', '');
+			const { items, itemsFilePath } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			const isCurrentlyHeld = item.available === false || item.hold === true;
+			item.available = isCurrentlyHeld;
+			item.hold = !isCurrentlyHeld;
+
+			saveItemsData(items, itemsFilePath);
+			updateGlobalPanel(client);
+
+			const embed = buildItemDetailEmbed(item, 'STATUS PRODUK DIPERBARUI');
+			const components = getItemSettingComponents(item);
+
 			return interaction.update({ embeds: [embed], components: components });
 		}
 

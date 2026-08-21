@@ -324,8 +324,9 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			const allowQuantity = getPanelManager().isCategoryQuantityAllowed(selectedItem.category);
+			const isUserReq = getPanelManager().isCategoryUsernameRequired(selectedItem.category);
 
-			if (selectedItem.requireUsername === false) {
+			if (!isUserReq) {
 				if (allowQuantity) {
 					const modal = new ModalBuilder()
 						.setCustomId(`modal_buy_${selectedItem.id}`)
@@ -537,7 +538,8 @@ async function handleBuyerInteraction(interaction, client) {
 			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 			let robloxCheck = 'Tidak Perlu';
-			if (selectedItem.requireUsername !== false && robloxUsername !== 'Tidak Perlu') {
+			const isUserReq = getPanelManager().isCategoryUsernameRequired(selectedItem.category);
+			if (isUserReq && robloxUsername !== 'Tidak Perlu') {
 				robloxCheck = await validateRobloxUsername(robloxUsername);
 
 				if (!robloxCheck.valid || !robloxCheck.found) {
@@ -754,15 +756,15 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const cart = getCart(orderId);
 			let requireLimitCheck = false;
+			const { isCategoryLimitCheckRequired } = getPanelManager();
 
 			if (cart && cart.items && cart.items.length > 0) {
 				requireLimitCheck = cart.items.some(item => {
-					const cat = (item.category || item.itemObj?.category || '').toLowerCase();
-					return item.requireLimitCheck === true || (item.itemObj && item.itemObj.requireLimitCheck === true) || cat.includes('robux');
+					const cat = item.category || item.itemObj?.category || 'General';
+					return isCategoryLimitCheckRequired(cat);
 				});
 			} else {
-				const isRobuxCategory = selectedItem.category && selectedItem.category.toLowerCase().includes('robux');
-				requireLimitCheck = selectedItem.requireLimitCheck !== undefined ? selectedItem.requireLimitCheck : isRobuxCategory;
+				requireLimitCheck = isCategoryLimitCheckRequired(selectedItem ? selectedItem.category : 'General');
 			}
 
 			if (!requireLimitCheck) {

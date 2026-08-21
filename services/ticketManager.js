@@ -578,7 +578,10 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		const cartMsg = await ticketChannel.send(cartData);
 		cartMessages.set(orderId.toUpperCase(), cartMsg);
 
-		if (robloxUsername && robloxUsername !== 'Tidak Perlu') {
+		const { isCategoryUsernameRequired } = require('./panelManager');
+		const isUserReq = isCategoryUsernameRequired(selectedItem ? selectedItem.category : 'General');
+
+		if (robloxUsername && robloxUsername !== 'Tidak Perlu' && isUserReq) {
 			const isFound = robloxUserId !== null && robloxData?.found !== false;
 			const { getRobloxAvatarHeadshot } = require('./roblox');
 			const avatarUrl = isFound ? await getRobloxAvatarHeadshot(robloxUserId) : null;
@@ -640,7 +643,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		const recordItemName = itemQty > 1 ? `${selectedItem.name} (x${itemQty})` : selectedItem.name;
 		await createPurchase(orderId, robloxUsername, recordItemName, totalAmount, uniqueCode, 'pending', interaction.user.tag);
 
-		if (!robloxUsername || robloxUsername === 'Tidak Perlu') {
+		if (!robloxUsername || robloxUsername === 'Tidak Perlu' || !isUserReq) {
 			const qrisData = buildQrisPaymentEmbedForCart(orderId);
 			if (qrisData) {
 				const qrisMsg = await ticketChannel.send({

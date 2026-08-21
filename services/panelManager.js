@@ -29,27 +29,40 @@ function getAllCategoryConfigs() {
  * Membaca detail konfigurasi kategori spesifik (emoji & allowQuantity)
  */
 function getCategoryConfig(categoryName) {
-    if (!categoryName) return { emoji: '📁', allowQuantity: false, usePrivateServer: false };
+    if (!categoryName) return { emoji: '📁', allowQuantity: false, usePrivateServer: false, requireUsername: true, requireLimitCheck: false };
     const configs = getAllCategoryConfigs();
     const config = configs[categoryName];
+    const catLower = (categoryName || '').toLowerCase();
+    const defaultUserReq = !catLower.includes('ptpt') && !catLower.includes('akun');
+    const defaultLimitReq = catLower.includes('robux');
+    const defaultPs = !catLower.includes('robux');
+
     if (config) {
         if (typeof config === 'string') {
-            return { emoji: config, allowQuantity: false, usePrivateServer: false };
+            return { 
+                emoji: config, 
+                allowQuantity: false, 
+                usePrivateServer: defaultPs,
+                requireUsername: defaultUserReq,
+                requireLimitCheck: defaultLimitReq
+            };
         }
-        const catLower = categoryName.toLowerCase();
-        const defaultPs = !catLower.includes('robux');
 
         return {
             emoji: config.emoji || '📁',
             allowQuantity: config.allowQuantity === true,
-            usePrivateServer: config.usePrivateServer !== undefined ? config.usePrivateServer === true : defaultPs
+            usePrivateServer: config.usePrivateServer !== undefined ? config.usePrivateServer === true : defaultPs,
+            requireUsername: config.requireUsername !== undefined ? config.requireUsername === true : defaultUserReq,
+            requireLimitCheck: config.requireLimitCheck !== undefined ? config.requireLimitCheck === true : defaultLimitReq
         };
     }
-    const catLower = (categoryName || '').toLowerCase();
+
     return {
         emoji: '📁',
         allowQuantity: false,
-        usePrivateServer: !catLower.includes('robux')
+        usePrivateServer: defaultPs,
+        requireUsername: defaultUserReq,
+        requireLimitCheck: defaultLimitReq
     };
 }
 
@@ -59,12 +72,14 @@ function getCategoryConfig(categoryName) {
 function setCategoryConfig(categoryName, newConfig) {
     if (!categoryName) return;
     const configs = getAllCategoryConfigs();
-    const current = configs[categoryName] || { emoji: '📁', allowQuantity: false, usePrivateServer: false };
+    const current = getCategoryConfig(categoryName);
 
     configs[categoryName] = {
         emoji: newConfig.emoji !== undefined ? newConfig.emoji : (current.emoji || '📁'),
         allowQuantity: newConfig.allowQuantity !== undefined ? newConfig.allowQuantity : current.allowQuantity,
-        usePrivateServer: newConfig.usePrivateServer !== undefined ? newConfig.usePrivateServer : (current.usePrivateServer === true)
+        usePrivateServer: newConfig.usePrivateServer !== undefined ? newConfig.usePrivateServer : current.usePrivateServer,
+        requireUsername: newConfig.requireUsername !== undefined ? newConfig.requireUsername : current.requireUsername,
+        requireLimitCheck: newConfig.requireLimitCheck !== undefined ? newConfig.requireLimitCheck : current.requireLimitCheck
     };
 
     try {
@@ -89,6 +104,16 @@ function isCategoryQuantityAllowed(categoryName) {
 function isCategoryPrivateServerAllowed(categoryName) {
     const config = getCategoryConfig(categoryName);
     return config.usePrivateServer === true;
+}
+
+function isCategoryUsernameRequired(categoryName) {
+    const config = getCategoryConfig(categoryName);
+    return config.requireUsername === true;
+}
+
+function isCategoryLimitCheckRequired(categoryName) {
+    const config = getCategoryConfig(categoryName);
+    return config.requireLimitCheck === true;
 }
 
 /**
@@ -585,6 +610,8 @@ module.exports = {
     setCategoryConfig,
     isCategoryQuantityAllowed,
     isCategoryPrivateServerAllowed,
+    isCategoryUsernameRequired,
+    isCategoryLimitCheckRequired,
     getItemEmoji,
     parseEmoji
 };
