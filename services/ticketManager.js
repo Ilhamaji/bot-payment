@@ -267,6 +267,19 @@ function getCart(orderId) {
 	return activeCarts.get(orderId.toUpperCase()) || null;
 }
 
+function isPrivateServerNeededForItem(item) {
+	if (!item) return false;
+	if (item.usePrivateServer === false) return false;
+	if (item.usePrivateServer === true) return true;
+	if (item.privateServerUrl && item.privateServerUrl.trim() !== '') return true;
+
+	const cat = (item.category || '').toLowerCase();
+	if (cat.includes('robux') || item.requireLimitCheck === true) {
+		return false;
+	}
+	return true;
+}
+
 function initCart(orderId, userId, robloxUsername, selectedItem, quantity, uniqueCode) {
 	const cleanOrderId = orderId.toUpperCase();
 	const itemQty = Math.max(1, parseInt(quantity) || 1);
@@ -278,7 +291,9 @@ function initCart(orderId, userId, robloxUsername, selectedItem, quantity, uniqu
 		emoji: selectedItem.emoji || '📦',
 		category: selectedItem.category,
 		quantity: itemQty,
-		subtotal: Number(selectedItem.price || 0) * itemQty
+		subtotal: Number(selectedItem.price || 0) * itemQty,
+		privateServerUrl: selectedItem.privateServerUrl,
+		usePrivateServer: selectedItem.usePrivateServer
 	};
 
 	const cart = {
@@ -346,7 +361,7 @@ function buildCartEmbedAndComponents(orderId) {
 
 	let activePsUrl = null;
 	for (const item of cart.items) {
-		if (item.usePrivateServer === true && globalPsUrl && globalPsUrl.trim() !== '') {
+		if (isPrivateServerNeededForItem(item) && globalPsUrl && globalPsUrl.trim() !== '') {
 			activePsUrl = globalPsUrl.trim();
 			break;
 		} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {
