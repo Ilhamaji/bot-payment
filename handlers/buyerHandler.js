@@ -664,6 +664,17 @@ async function handleBuyerInteraction(interaction, client) {
 					`Kalau kamu sudah paham, klik **Saya Paham & Setuju**!`;
 			}
 
+			let psButton = null;
+			if (selectedItem && selectedItem.privateServerUrl && selectedItem.privateServerUrl.trim() !== '') {
+				notesDescription += `\n\n🌐 **LINK PRIVATE WORLD / SERVER TOKO:**\n[🌐 Klik Untuk Masuk Private World Toko](${selectedItem.privateServerUrl.trim()})`;
+				try {
+					psButton = new ButtonBuilder()
+						.setLabel('🌐 Masuk Private World')
+						.setStyle(ButtonStyle.Link)
+						.setURL(selectedItem.privateServerUrl.trim());
+				} catch (e) {}
+			}
+
 			const notesEmbed = new EmbedBuilder()
 				.setTitle('📌  CATATAN PENTING')
 				.setColor(0xE91E63)
@@ -677,6 +688,7 @@ async function handleBuyerInteraction(interaction, client) {
 				.setStyle(ButtonStyle.Success);
 
 			const agreeRow = new ActionRowBuilder().addComponents(agreeBtn);
+			if (psButton) agreeRow.addComponents(psButton);
 
 			await interaction.channel.send({ embeds: [notesEmbed], components: [agreeRow] });
 			return;

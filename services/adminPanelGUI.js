@@ -148,12 +148,17 @@ function buildItemCheckboxMenu(item) {
 function buildItemDoneButton(item) {
 	const editPriceBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_edit_price_${item.id}`)
-		.setLabel('✏️ Edit Harga & Nama')
+		.setLabel('✏️ Edit Detail & Nama')
 		.setStyle(ButtonStyle.Primary);
+
+	const editPsBtn = new ButtonBuilder()
+		.setCustomId(`ap_btn_edit_ps_${item.id}`)
+		.setLabel('🌐 Private World')
+		.setStyle(ButtonStyle.Secondary);
 
 	const delBtn = new ButtonBuilder()
 		.setCustomId(`ap_btn_del_single_${item.id}`)
-		.setLabel('🗑️ Hapus Produk Ini')
+		.setLabel('🗑️ Hapus Produk')
 		.setStyle(ButtonStyle.Danger);
 
 	const doneBtn = new ButtonBuilder()
@@ -161,7 +166,7 @@ function buildItemDoneButton(item) {
 		.setLabel('✅ Selesai Edit')
 		.setStyle(ButtonStyle.Success);
 
-	return new ActionRowBuilder().addComponents(editPriceBtn, delBtn, doneBtn);
+	return new ActionRowBuilder().addComponents(editPriceBtn, editPsBtn, delBtn, doneBtn);
 }
 
 function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
@@ -172,13 +177,16 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 	const isHeld = item.available === false || item.hold === true;
 	const statusLabel = isHeld ? '`⛔ DITAHAN (Tidak Bisa Dibeli)`' : '`🟢 AKTIF (Bisa Dibeli)`';
 	const notesLabel = item.notes ? item.notes : '*Catatan standar/default*';
+	const psLinkLabel = (item.privateServerUrl && item.privateServerUrl.trim() !== '') 
+		? `[🌐 Klik Masuk Private World](${item.privateServerUrl.trim()})` 
+		: '`❌ Belum diatur (Kosong)`';
 
 	const embed = new EmbedBuilder()
 		.setTitle(`📦  ${actionTitle}: ${item.name}`)
 		.setColor(isHeld ? 0xED4245 : 0x2ECC71)
 		.setDescription(
 			`Berikut adalah detail & setting produk **${item.name}**:\n\n` +
-			`💡 *Klik **✏️ Edit Harga & Nama** untuk mengubah harga/nama, ubah kategori/setting di bawah, lalu tekan **✅ Selesai Edit**!*`
+			`💡 *Klik **🌐 Private World** untuk mengatur link server in-game, ubah kategori/setting di bawah, lalu tekan **✅ Selesai Edit**!*`
 		)
 		.addFields(
 			{ name: '🆔 ID Item', value: `\`${item.id}\``, inline: true },
@@ -187,6 +195,7 @@ function buildItemDetailEmbed(item, actionTitle = 'DETAIL PRODUK') {
 			{ name: '👤 Username Roblox', value: reqUserLabel, inline: true },
 			{ name: '🔍 Cek Limit Roblox', value: reqLimitLabel, inline: true },
 			{ name: '⏸️ Status Pembelian', value: statusLabel, inline: true },
+			{ name: '🌐 Private World / Server', value: psLinkLabel, inline: false },
 			{ name: '📌 Catatan Tiket', value: `${notesLabel}`, inline: false }
 		)
 		.setTimestamp()
@@ -290,6 +299,32 @@ async function handleAdminPanelInteraction(interaction, client) {
 				new ActionRowBuilder().addComponents(notesInput)
 			);
 
+			return interaction.showModal(modal);
+		}
+
+		// Tombol Launch Modal Edit Link Private Server / World
+		if (customId.startsWith('ap_btn_edit_ps_')) {
+			const itemId = customId.replace('ap_btn_edit_ps_', '');
+			const { items } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			const modal = new ModalBuilder()
+				.setCustomId(`ap_modal_edit_ps_${item.id}`)
+				.setTitle(`PRIVATE WORLD: ${item.name.substring(0, 15)}`);
+
+			const psInput = new TextInputBuilder()
+				.setCustomId('edit_ps_url')
+				.setLabel('URL LINK PRIVATE WORLD / SERVER:')
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder('Cth: https://www.roblox.com/games/share?... (kosongkan jika tidak ada)')
+				.setValue(item.privateServerUrl || '')
+				.setRequired(false);
+
+			modal.addComponents(new ActionRowBuilder().addComponents(psInput));
 			return interaction.showModal(modal);
 		}
 
@@ -1105,6 +1140,33 @@ async function handleAdminPanelInteraction(interaction, client) {
 			const components = getItemSettingComponents(item);
 
 			return interaction.reply({ embeds: [embed], components: components, flags: MessageFlags.Ephemeral });
+		}
+
+		// Submit Edit Link Private World / Server
+		if (customId.startsWith('ap_modal_edit_ps_')) {
+			const itemId = customId.replace('ap_modal_edit_ps_', '');
+			const psUrl = interaction.fields.getTextInputValue('edit_ps_url').trim();
+
+			const { items, itemsFilePath } = getItemsData();
+			const item = items.find(i => i.id === itemId);
+
+			if (!item) {
+				return interaction.reply({ content: '❌ Item tidak ditemukan.', flags: MessageFlags.Ephemeral });
+			}
+
+			if (psUrl !== '') {
+				item.privateServerUrl = psUrl;
+			} else {
+				delete item.privateServerUrl;
+			}
+
+			saveItemsData(items, itemsFilePath);
+			updateGlobalPanel(client);
+
+			const embed = buildItemDetailEmbed(item, 'LINK PRIVATE WORLD DIPERBARUI');
+			const components = getItemSettingComponents(item);
+
+			return interaction.update({ embeds: [embed], components: components });
 		}
 
 		// Submit Edit Kategori
