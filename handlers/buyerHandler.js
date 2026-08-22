@@ -20,6 +20,7 @@ const {
 	deleteTicketCreationMessage, 
 	markProofSubmittedForOrder,
 	sendTicketLogEmbed,
+	getUserActiveTicket,
 	getAdminChannel,
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
@@ -322,6 +323,17 @@ async function handleBuyerInteraction(interaction, client) {
 			if (selectedItem.available === false || selectedItem.hold === true) {
 				return interaction.reply({
 					content: `⛔ **PRODUK SEMENTARA DITAHAN!**\n> Produk **${selectedItem.name}** saat ini sedang ditahan oleh Admin (Stok Kosong / Maintenance) dan tidak dapat dibeli untuk sementara.\n> Silakan cek kembali nanti atau pilih produk lainnya.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
+			const activeTicket = await getUserActiveTicket(interaction.guild, interaction.user.id);
+			if (activeTicket) {
+				const channelUrl = `https://discord.com/channels/${interaction.guild.id}/${activeTicket.id}`;
+				return interaction.reply({
+					content: `⛔ **KAMU SUDAH MEMILIKI TIKET AKTIF!**\n\n` +
+						`> Kamu hanya dapat memiliki **1 tiket transaksi** dalam satu waktu.\n` +
+						`> Silakan selesaikan transaksi atau tutup tiket kamu sebelumnya di: <#${activeTicket.id}> ([Klik Untuk Ke Tiket](${channelUrl}))`,
 					flags: MessageFlags.Ephemeral
 				});
 			}

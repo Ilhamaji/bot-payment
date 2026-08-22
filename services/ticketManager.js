@@ -602,7 +602,55 @@ function buildQrisPaymentEmbedForCart(orderId, qrisImageOverride = null) {
 	return result;
 }
 
+async function getUserActiveTicket(guild, userId) {
+	if (!guild || !userId) return null;
+
+	try {
+		const channels = await guild.channels.fetch();
+		for (const [id, channel] of channels) {
+			if (!channel || channel.type !== ChannelType.GuildText) continue;
+
+			const isTicketChannel = channel.name && (
+				channel.name.includes('-bb-') || 
+				(process.env.TICKET_CATEGORY_ID && channel.parentId === process.env.TICKET_CATEGORY_ID.trim())
+			);
+
+			if (isTicketChannel) {
+				if (ticketOwnerMap.has(channel.id)) {
+					const owner = ticketOwnerMap.get(channel.id);
+					if (owner && owner.userId === userId) {
+						return channel;
+					}
+				}
+
+				const userOverwrite = channel.permissionOverwrites?.cache?.get(userId);
+				if (userOverwrite && userOverwrite.allow && userOverwrite.allow.has(PermissionFlagsBits.ViewChannel)) {
+					return channel;
+				}
+			}
+		}
+	} catch (e) {
+		console.error('Error checking active ticket for user:', e);
+	}
+
+	return null;
+}
+
 async function createTicketChannel(interaction, selectedItem, robloxData = 'Tidak Perlu', client, quantity = 1, additionalItems = []) {
+	const activeTicket = await getUserActiveTicket(interaction.guild, interaction.user.id);
+	if (activeTicket) {
+		const channelUrl = `https://discord.com/channels/${interaction.guild.id}/${activeTicket.id}`;
+		const msgContent = `⛔ **KAMU SUDAH MEMILIKI TIKET AKTIF!**\n\n` +
+			`> Kamu hanya dapat membuat **1 tiket transaksi** dalam satu waktu.\n` +
+			`> Silakan selesaikan atau tutup tiket kamu sebelumnya di: <#${activeTicket.id}> ([Klik Untuk Ke Tiket](${channelUrl}))`;
+
+		if (interaction.deferred || interaction.replied) {
+			return interaction.followUp({ content: msgContent, flags: MessageFlags.Ephemeral });
+		} else {
+			return interaction.reply({ content: msgContent, flags: MessageFlags.Ephemeral });
+		}
+	}
+
 	const robloxUsername = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.username : String(robloxData);
 	const robloxDisplayName = (typeof robloxData === 'object' && robloxData !== null) ? (robloxData.displayName || robloxUsername) : robloxUsername;
 	const robloxUserId = (typeof robloxData === 'object' && robloxData !== null) ? robloxData.id : null;
@@ -1057,6 +1105,7 @@ module.exports = {
 	createTicketChannel,
 	deleteAdminChannelMessagesForOrder,
 	checkAndCleanupExpiredTickets,
+	getUserActiveTicket,
 	getAdminChannel,
 	sendTicketLogEmbed,
 	getOrCreateTicketLogChannel,
