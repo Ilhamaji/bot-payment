@@ -20,6 +20,7 @@ const {
 	deleteTicketCreationMessage, 
 	markProofSubmittedForOrder,
 	sendTicketLogEmbed,
+	getAdminChannel,
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
 	deleteAdminChannelMessagesForOrder,
@@ -1469,42 +1470,46 @@ async function handleBuyerInteraction(interaction, client) {
 
 			await interaction.reply({ embeds: [sosUserEmbed] });
 
-			const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
-			if (adminChannelId) {
+			const adminChannel = await getAdminChannel(interaction.guild);
+			if (adminChannel) {
 				try {
-					const adminChannel = await client.channels.fetch(adminChannelId);
-					if (adminChannel) {
-						const orderId = interaction.channel.name ? interaction.channel.name.toUpperCase() : '';
-						const sosAdminEmbed = new EmbedBuilder()
-							.setTitle('🚨  BEBEY STORE — PANGGILAN DARURAT ADMIN (SOS)')
-							.setColor(0xED4245)
-							.setDescription(
-								`Halo Admin! Pembeli **${interaction.user.tag}** membutuhkan bantuan Anda di channel tiket.`
-							)
-							.addFields(
-								{ name: '🆔  ORDER ID', value: `\`${orderId}\``, inline: true },
-								{ name: '👤  PEMANGGIL', value: `${interaction.user} (\`${interaction.user.tag}\`)`, inline: true },
-								{ name: '📍  CHANNEL TIKET', value: `<#${interaction.channelId}> (\`${interaction.channelId}\`)`, inline: true }
-							)
-							.setTimestamp()
-							.setFooter({ text: 'Klik link channel tiket di atas untuk membuka & merespon pembeli.' });
+					const orderId = interaction.channel.name ? interaction.channel.name.toUpperCase() : '';
+					const sosAdminEmbed = new EmbedBuilder()
+						.setTitle('🚨  BEBEY STORE — PANGGILAN DARURAT ADMIN (SOS)')
+						.setColor(0xED4245)
+						.setDescription(
+							`Halo Admin! Pembeli **${interaction.user.tag}** (${interaction.user}) membutuhkan bantuan Anda di channel tiket.`
+						)
+						.addFields(
+							{ name: '🆔  ORDER ID', value: `\`${orderId}\``, inline: true },
+							{ name: '👤  PEMANGGIL', value: `${interaction.user} (\`${interaction.user.tag}\`)`, inline: true },
+							{ name: '📍  CHANNEL TIKET', value: `<#${interaction.channelId}> (\`${interaction.channelId}\`)`, inline: true }
+						)
+						.setTimestamp()
+						.setFooter({ text: 'Klik link channel tiket di atas untuk membuka & merespon pembeli.' });
 
-						const doneBtn = new ButtonBuilder()
-							.setCustomId(`sos_done_${interaction.channelId}`)
-							.setLabel('✅ Bantuan Selesai (Hapus Notif)')
-							.setStyle(ButtonStyle.Success);
+					const doneBtn = new ButtonBuilder()
+						.setCustomId(`sos_done_${interaction.channelId}`)
+						.setLabel('✅ Bantuan Selesai (Hapus Notif)')
+						.setStyle(ButtonStyle.Success);
 
-						const sosRow = new ActionRowBuilder().addComponents(doneBtn);
+					const sosRow = new ActionRowBuilder().addComponents(doneBtn);
 
-						await adminChannel.send({
-							content: `@here 🚨 **SOS BANTUAN ADMIN!** User ${interaction.user} membutuhkan bantuan di <#${interaction.channelId}>!`,
-							embeds: [sosAdminEmbed],
-							components: [sosRow]
-						});
-					}
+					await adminChannel.send({
+						content: `@here 🚨 **SOS BANTUAN ADMIN!** User ${interaction.user} membutuhkan bantuan di <#${interaction.channelId}>!`,
+						embeds: [sosAdminEmbed],
+						components: [sosRow]
+					});
+					console.log(`[SOS HELP] Panggilan SOS dari ${interaction.user.tag} dikirim ke #${adminChannel.name}`);
 				} catch (err) {
 					console.warn('⚠️ Gagal mengirim notifikasi SOS ke Admin Channel:', err);
 				}
+			} else {
+				console.warn('⚠️ Admin channel tidak ditemukan. Pastikan ADMIN_CHANNEL_ID di .env terisi dengan ID text channel admin!');
+				await interaction.followUp({
+					content: '⚠️ **Pemberitahuan:** Admin Channel belum terdeteksi. Silakan beri tahu Admin untuk mengecek konfigurasi server / file `.env` (ADMIN_CHANNEL_ID).',
+					flags: MessageFlags.Ephemeral
+				});
 			}
 			return;
 		}

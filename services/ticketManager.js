@@ -888,6 +888,38 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 	}
 }
 
+async function getAdminChannel(guild) {
+	if (!guild) return null;
+
+	const envAdminId = (process.env.ADMIN_CHANNEL_ID || '').trim();
+	if (envAdminId) {
+		try {
+			const ch = await guild.channels.fetch(envAdminId);
+			if (ch) return ch;
+		} catch (e) {}
+	}
+
+	const { getPanelLocation, saveAdminChannelLocation } = require('./panelManager');
+	const loc = getPanelLocation();
+	if (loc && loc.adminChannelId) {
+		try {
+			const ch = await guild.channels.fetch(loc.adminChannelId);
+			if (ch) return ch;
+		} catch (e) {}
+	}
+
+	const existingCh = guild.channels.cache.find(c => 
+		c.type === ChannelType.GuildText && 
+		(c.name.includes('admin') || c.name.includes('pesanan') || c.name.includes('order-log'))
+	);
+	if (existingCh) {
+		saveAdminChannelLocation(existingCh.id);
+		return existingCh;
+	}
+
+	return null;
+}
+
 async function getOrCreateTicketLogChannel(guild) {
 	if (!guild) return null;
 
@@ -1025,6 +1057,7 @@ module.exports = {
 	createTicketChannel,
 	deleteAdminChannelMessagesForOrder,
 	checkAndCleanupExpiredTickets,
+	getAdminChannel,
 	sendTicketLogEmbed,
 	getOrCreateTicketLogChannel,
 	markProofSubmittedForOrder,
