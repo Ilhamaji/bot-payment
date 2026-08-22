@@ -45,18 +45,34 @@ async function handleAdminInteraction(interaction, client) {
 				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin toko yang dapat menekan tombol Approve.', flags: MessageFlags.Ephemeral });
 			}
 
-			const orderId = customId.replace('admin_approve_', '');
+			const orderId = customId.replace('admin_approve_', '').trim().toUpperCase();
+			const { sendApprovalPhaseOneToTicket } = require('../services/ticketManager');
+
+			await sendApprovalPhaseOneToTicket(client, orderId, interaction.user, interaction.message);
+
+			if (interaction.message && interaction.message.embeds.length > 0) {
+				try {
+					const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+						.setColor(0x3498DB)
+						.setTitle('✅  PEMBAYARAN DI-APPROVE — MENUNGGU BUKTI PENGIRIMAN')
+						.setDescription(
+							`Pembayaran untuk order \`${orderId}\` telah di-approve oleh Admin ${interaction.user}.\n` +
+							`Panduan Private World / Add Akun Roblox telah dikirimkan ke pembeli di channel tiket.\n\n` +
+							`📸 **LANGKAH SELANJUTNYA (KIRIM BUKTI PENGIRIMAN):**\n` +
+							`Silakan lakukan pengiriman / trade di Roblox, lalu **Reply (balas) chat ini dengan melampirkan FOTO SCREENSHOT BUKTI PENGIRIMAN**!`
+						);
+
+					await interaction.message.edit({ embeds: [updatedEmbed], components: [] });
+				} catch (e) {}
+			}
 
 			await interaction.reply({
 				content: 
-					`📸 **CARA KIRIM BUKTI PENGIRIMAN (ORDER: \`${orderId}\`):**\n\n` +
-					`1. **Tekan Balas (Reply)** pada pesan notifikasi transaksi di atas.\n` +
-					`2. **Lampirkan / Upload Foto (Attachment Gambar)** bukti pengiriman item (screenshot pengiriman).\n` +
-					`3. Tekan Kirim. Bot akan otomatis mengirimkan foto bukti tersebut ke channel tiket pembeli!`,
+					`✅ **PEMBAYARAN DI-APPROVE!** Informasi Private Server / Add Akun Roblox telah dikirim ke pembeli di channel tiket.\n\n` +
+					`📸 **LANGKAH TERAKHIR:** Setelah Anda memberikan item di game, silakan **Reply (balas) chat transaksi di Admin Channel ini dengan melampirkan FOTO SCREENSHOT BUKTI PENGIRIMAN**!`,
 				flags: MessageFlags.Ephemeral
 			});
 
-			adminInstructionInteractions.set(orderId.toUpperCase(), interaction);
 			return true;
 		}
 

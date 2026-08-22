@@ -279,6 +279,78 @@ async function findTicketChannelForOrder(guild, orderId) {
 	return null;
 }
 
+async function sendApprovalPhaseOneToTicket(clientInstance, orderId, adminUser, originalMessage) {
+	const cleanOrderId = orderId.toUpperCase();
+	let targetGuild = (originalMessage && originalMessage.guild) || clientInstance.guilds.cache.first();
+	if (!targetGuild) return false;
+
+	const ticketChannel = await findTicketChannelForOrder(targetGuild, orderId);
+	if (!ticketChannel) return false;
+
+	let buyerMention = '';
+	if (originalMessage && originalMessage.embeds && originalMessage.embeds.length > 0) {
+		const buyerField = originalMessage.embeds[0].fields?.find(f => f.name.includes('PEMBELI'));
+		if (buyerField) buyerMention = buyerField.value;
+	}
+	if (!buyerMention) {
+		const ownerData = await getTicketOwnerData(targetGuild, ticketChannel, orderId);
+		if (ownerData && ownerData.userId && ownerData.userId !== 'Unknown') {
+			buyerMention = `<@${ownerData.userId}>`;
+		}
+	}
+
+	let activePsUrl = null;
+	const cart = getCart(cleanOrderId);
+	if (cart && cart.items) {
+		const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('./panelManager');
+		const globalPsUrl = getGlobalPrivateServerUrl();
+		for (const item of cart.items) {
+			const isCatPsAllowed = isCategoryPrivateServerAllowed(item.category || 'General');
+			if (isCatPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') {
+				activePsUrl = globalPsUrl.trim();
+				break;
+			} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {
+				activePsUrl = item.privateServerUrl.trim();
+				break;
+			}
+		}
+	} else {
+		const { getGlobalPrivateServerUrl } = require('./panelManager');
+		activePsUrl = getGlobalPrivateServerUrl();
+	}
+
+	const { guideSection: psGuideSection, btnPs } = buildPrivateServerGuideSection(activePsUrl);
+
+	const phaseOneEmbed = new EmbedBuilder()
+		.setTitle('✅  BEBEY STORE — PEMBAYARAN DI-APPROVE!')
+		.setColor(0x2ECC71)
+		.setDescription(
+			`Hore ${buyerMention}! 🎉 Pembayaran kamu untuk order \`${cleanOrderId}\` **telah DI-APPROVE oleh Admin ${adminUser ? adminUser : ''}**.\n\n` +
+			`📌 **INSTRUKSI PENGAMBILAN ITEM:**\n` +
+			`Admin sedang menyiapkan & melakukan proses pengiriman item untuk pesanan kamu.` +
+			psGuideSection + `\n\n` +
+			`💬 **Selanjutnya:** Silakan bergabung ke Private World / add akun Roblox di atas. Setelah item dikirim di game, Admin akan mengunggah foto bukti pengiriman di channel ini!`
+		)
+		.setTimestamp()
+		.setFooter({ text: `💖 Bebey Store Official • ${cleanOrderId}` });
+
+	const row = new ActionRowBuilder();
+	if (btnPs) row.addComponents(btnPs);
+
+	try {
+		await ticketChannel.send({
+			content: `🔔 ${buyerMention} Pembayaran kamu telah di-approve! Silakan cek informasi Private World / Add Akun di bawah ini:`,
+			embeds: [phaseOneEmbed],
+			components: row.components.length > 0 ? [row] : []
+		});
+		console.log(`[APPROVE PHASE 1] Informasi Private Server / Add Akun dikirim ke #${ticketChannel.name} untuk order ${cleanOrderId}`);
+		return true;
+	} catch (err) {
+		console.error('Error sending Phase 1 approval embed:', err);
+		return false;
+	}
+}
+
 async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '', adminUser = null, originalMessage = null, interactionToReply = null) {
 	await updatePurchaseStatus(orderId, 'fulfilled');
 	updateGlobalPanel(clientInstance);
@@ -1352,6 +1424,7 @@ module.exports = {
 	isSosActiveForChannel,
 	setSosActiveForChannel,
 	clearSosForChannel,
+	sendApprovalPhaseOneToTicket,
 	sendTicketLogEmbed,
 	getOrCreateTicketLogChannel,
 	markProofSubmittedForOrder,
