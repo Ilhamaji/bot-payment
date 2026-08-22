@@ -5,20 +5,29 @@ const {
 	executeOrderApproval, 
 	buyerPendingProofs, 
 	disableQrisButtonForOrder,
-	markProofSubmittedForOrder 
+	markProofSubmittedForOrder,
+	getAdminChannel
 } = require('../services/ticketManager');
 
 async function handleProofMessageDetection(message, client) {
 	if (message.author.bot) return;
 	if (!message.guild) return;
 
-	const imageAttachment = message.attachments.find(a => a.contentType && a.contentType.startsWith('image/'));
+	// Deteksi attachment file gambar:
+	// A. Lewat contentType 'image/'
+	// B. Lewat ekstensi nama file (.png, .jpg, .jpeg, .webp, .gif)
+	let imageAttachment = message.attachments.find(a => 
+		(a.contentType && a.contentType.startsWith('image/')) ||
+		/\.(png|jpg|jpeg|webp|gif)$/i.test(a.name || a.url || '')
+	);
 
 	// 1. Deteksi Balasan (Reply) Admin di Admin Channel untuk Bukti Pengiriman Item
-	const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
-	const isAdminChannel = adminChannelId ? (message.channelId === adminChannelId) : true;
+	const adminChannel = await getAdminChannel(message.guild);
+	const isAdminChannel = adminChannel ? (message.channelId === adminChannel.id) : (
+		process.env.ADMIN_CHANNEL_ID ? (message.channelId === process.env.ADMIN_CHANNEL_ID.trim()) : true
+	);
 
-	if (isAdmin(message.author.id) && isAdminChannel) {
+	if (isAdmin(message.author.id) && (isAdminChannel || message.reference)) {
 		// A. Jika Admin me-reply pesan notifikasi transaksi bot
 		if (message.reference && message.reference.messageId) {
 			let targetMsg = null;
@@ -26,18 +35,50 @@ async function handleProofMessageDetection(message, client) {
 
 			try {
 				const referencedMsg = await message.channel.messages.fetch(message.reference.messageId);
-				if (referencedMsg && referencedMsg.embeds.length > 0) {
+				if (referencedMsg) {
 					targetMsg = referencedMsg;
-					const embed = referencedMsg.embeds[0];
-					const orderField = embed.fields?.find(f => f.name.includes('ORDER ID'));
-					if (orderField) {
-						matchedOrderId = orderField.value.replace(/`/g, '').trim().toUpperCase();
-					} else if (embed.description) {
-						const match = embed.description.match(/`([A-Z0-9_-]+-[A-Z0-9]+)`/);
+
+					// 1. Ambil Order ID dari Button Components (admin_approve_ORDERID)
+					if (referencedMsg.components && referencedMsg.components.length > 0) {
+						for (const row of referencedMsg.components) {
+							for (const comp of row.components) {
+								if (comp.customId && comp.customId.startsWith('admin_approve_')) {
+									matchedOrderId = comp.customId.replace('admin_approve_', '').trim().toUpperCase();
+									break;
+								}
+								if (comp.customId && comp.customId.startsWith('admin_reject_')) {
+									matchedOrderId = comp.customId.replace('admin_reject_', '').trim().toUpperCase();
+									break;
+								}
+							}
+							if (matchedOrderId) break;
+						}
+					}
+
+					// 2. Ambil Order ID dari Embed Fields atau Description
+					if (!matchedOrderId && referencedMsg.embeds && referencedMsg.embeds.length > 0) {
+						const embed = referencedMsg.embeds[0];
+						const orderField = embed.fields?.find(f => f.name.toUpperCase().includes('ORDER ID'));
+						if (orderField) {
+							matchedOrderId = orderField.value.replace(/`/g, '').trim().toUpperCase();
+						} else if (embed.footer && embed.footer.text) {
+							const match = embed.footer.text.match(/([A-Z0-9_-]+-[A-Z0-9]+)/i);
+							if (match) matchedOrderId = match[1].toUpperCase();
+						} else if (embed.description) {
+							const match = embed.description.match(/`([A-Z0-9_-]+-[A-Z0-9]+)`/i);
+							if (match) matchedOrderId = match[1].toUpperCase();
+						}
+					}
+
+					// 3. Ambil Order ID dari Content Pesan (Order `ORDERID`)
+					if (!matchedOrderId && referencedMsg.content) {
+						const match = referencedMsg.content.match(/Order\s+`([^\`]+)`/i) || referencedMsg.content.match(/`([A-Z0-9_-]+-[A-Z0-9]+)`/i);
 						if (match) matchedOrderId = match[1].toUpperCase();
 					}
 				}
-			} catch (e) {}
+			} catch (e) {
+				console.error('Error fetching referenced message for admin reply:', e);
+			}
 
 			if (!matchedOrderId && pendingAdminDeliveryProof.size > 0) {
 				for (const [key, data] of pendingAdminDeliveryProof.entries()) {
@@ -65,8 +106,9 @@ async function handleProofMessageDetection(message, client) {
 				await executeOrderApproval(client, matchedOrderId, proofUrl, notes, message.author, targetMsg, null);
 
 				await message.reply({
-					content: `✅ **BUKTI PENGIRIMAN DI-APPROVE / DIPERBARUI!** Foto screenshot bukti pengiriman item untuk order \`${matchedOrderId}\` telah berhasil dikirimkan / diperbarui di channel tiket pembeli!`
+					content: `✅ **BUKTI PENGIRIMAN DI-APPROVE!** Foto screenshot bukti pengiriman item untuk order \`${matchedOrderId}\` telah berhasil dikirimkan ke channel tiket pembeli!`
 				});
+				console.log(`[ADMIN REPLY APPROVE] Admin ${message.author.tag} me-reply transaksi ${matchedOrderId} dengan foto bukti pengiriman.`);
 				return;
 			}
 		}
