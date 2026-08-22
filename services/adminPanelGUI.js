@@ -376,6 +376,26 @@ async function handleAdminPanelInteraction(interaction, client) {
 			});
 		}
 
+		// Kirim Chat Panduan Transaksi ke Channel (ap_btn_sendpanduan)
+		if (customId === 'ap_btn_sendpanduan') {
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+			const { buildPanduanEmbed, buildPanduanSelectMenu } = require('../commands/panduan');
+			const embed = buildPanduanEmbed('semua');
+			const selectRow = buildPanduanSelectMenu('semua');
+
+			try {
+				await interaction.channel.send({
+					embeds: [embed],
+					components: [selectRow]
+				});
+				return interaction.editReply({ 
+					content: `✅ **Pesan Panduan Transaksi & Cara Pembayaran Berhasil Dikirimkan ke Channel #${interaction.channel.name}!**` 
+				});
+			} catch (e) {
+				return interaction.editReply({ content: '❌ Gagal mengirimkan pesan panduan transaksi ke channel ini.' });
+			}
+		}
+
 		// Pasang Leaderboard
 		if (customId === 'ap_btn_sendlb') {
 			await interaction.deferReply({ flags: MessageFlags.Ephemeral });

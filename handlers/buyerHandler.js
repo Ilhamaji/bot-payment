@@ -313,8 +313,21 @@ async function refreshTicketCartAndQris(orderId) {
 }
 
 async function handleBuyerInteraction(interaction, client) {
-	// 1. Dropdown Select Menu (Pilih Item Produk)
+	// 1. Dropdown Select Menu (Pilih Item Produk & Panduan)
 	if (interaction.isStringSelectMenu()) {
+		if (interaction.customId === 'select_panduan_category') {
+			const { buildPanduanEmbed, buildPanduanSelectMenu } = require('../commands/panduan');
+			const chosenCat = interaction.values[0] || 'semua';
+			const embed = buildPanduanEmbed(chosenCat);
+			const selectRow = buildPanduanSelectMenu(chosenCat);
+
+			await interaction.update({
+				embeds: [embed],
+				components: [selectRow]
+			});
+			return;
+		}
+
 		if (interaction.customId.startsWith('select_shop_item')) {
 			delete require.cache[require.resolve('../config/items')];
 			const currentItems = require('../config/items');
