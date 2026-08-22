@@ -1044,25 +1044,57 @@ async function handleBuyerInteraction(interaction, client) {
 
 			await interaction.update({ embeds: [updatedProofEmbed], components: [] });
 
-			const purchase = await getPurchaseById(orderId);
+			const cart = getCart(orderId);
+			let purchase = await getPurchaseById(orderId);
 
-			const itemName = purchase ? purchase.item_name : 'N/A';
-			const itemPrice = purchase ? `Rp ${purchase.price.toLocaleString('id-ID')}` : 'N/A';
-			const robloxUser = purchase ? (purchase.roblox_username || 'Tidak Perlu') : 'Tidak Perlu';
+			let itemName = 'N/A';
+			let nominalPrice = 0;
+			let robloxUser = 'Tidak Perlu';
+
+			if (cart && cart.items && cart.items.length > 0) {
+				let subtotalAll = 0;
+				const itemLines = [];
+				cart.items.forEach((item, idx) => {
+					subtotalAll += item.subtotal;
+					itemLines.push(`**${idx + 1}.** ${item.emoji || '📦'} **${item.name}** (x${item.quantity}) • \`Rp ${item.subtotal.toLocaleString('id-ID')}\``);
+				});
+				itemName = itemLines.join('\n');
+				nominalPrice = subtotalAll + (cart.uniqueCode || 0);
+				robloxUser = cart.robloxUsername || 'Tidak Perlu';
+
+				try {
+					const { createPurchase } = require('../services/supabase');
+					await createPurchase(
+						orderId,
+						robloxUser,
+						cart.items.map(i => `${i.name} (x${i.quantity})`).join(', '),
+						nominalPrice,
+						0,
+						purchase ? purchase.status : 'pending',
+						interaction.user.tag
+					);
+				} catch (e) {}
+			} else if (purchase) {
+				itemName = `📦 **${purchase.item_name || 'N/A'}**`;
+				nominalPrice = Number(purchase.price) || 0;
+				robloxUser = purchase.roblox_username || 'Tidak Perlu';
+			}
+
+			const formattedNominal = nominalPrice > 0 ? `Rp ${nominalPrice.toLocaleString('id-ID')}` : 'N/A';
 
 			const adminProofEmbed = new EmbedBuilder()
 				.setTitle('📸  VERIFIKASI BUKTI TRANSFER — ADMIN PANEL')
 				.setColor(0xF39C12)
 				.setDescription(
 					`Bukti pembayaran baru telah dikonfirmasi oleh pembeli ${interaction.user}.\n` +
-					`Mohon periksa gambar bukti transfer di bawah ini.`
+					`Mohon periksa gambar bukti transfer di bawah ini dan pastikan nominal transfer **SANGAT COCOK**.`
 				)
 				.addFields(
 					{ name: '🆔 ORDER ID', value: `\`${orderId}\``, inline: true },
-					{ name: '📦 ITEM DIBELI', value: `**${itemName}**`, inline: true },
-					{ name: '💰 NOMINAL TRANSFER', value: `**${itemPrice}**`, inline: true },
+					{ name: '💰 NOMINAL TRANSFER', value: `**${formattedNominal}**`, inline: true },
 					{ name: '👤 PEMBELI', value: `${interaction.user}`, inline: true },
-					{ name: '📍 TIKET CHANNEL', value: `<#${interaction.channelId}>`, inline: true }
+					{ name: '📍 TIKET CHANNEL', value: `<#${interaction.channelId}>`, inline: true },
+					{ name: '📦 ITEM DIBELI', value: `${itemName}`, inline: false }
 				);
 
 			if (robloxUser && robloxUser !== 'Tidak Perlu') {
@@ -1086,42 +1118,27 @@ async function handleBuyerInteraction(interaction, client) {
 
 			const row = new ActionRowBuilder().addComponents(approveBtn, rejectBtn);
 
-			const adminChannelId = process.env.ADMIN_CHANNEL_ID ? process.env.ADMIN_CHANNEL_ID.trim() : null;
+			const adminChannel = await getAdminChannel(interaction.guild);
 			let sentToAdminChannel = false;
 
-			if (adminChannelId) {
+			if (adminChannel) {
 				try {
 					await deleteAdminChannelMessagesForOrder(client, orderId);
 
-					const adminChannel = await client.channels.fetch(adminChannelId);
-					if (adminChannel) {
-						await adminChannel.send({
-							content: `@here 🔔 **BUKTI TRANSFER MASUK!** Order \`${orderId}\` dari ${interaction.user} membutuhkan verifikasi Admin:`,
-							embeds: [adminProofEmbed],
-							components: [row]
-						});
-						sentToAdminChannel = true;
-					}
-				} catch (err) {}
+					await adminChannel.send({
+						content: `@here 🔔 **BUKTI TRANSFER MASUK!** Order \`${orderId}\` dari ${interaction.user} membutuhkan verifikasi Admin:`,
+						embeds: [adminProofEmbed],
+						components: [row]
+					});
+					sentToAdminChannel = true;
+					console.log(`[PROOF VERIFICATION] Embed verifikasi bukti transfer ${orderId} berhasil dikirim ke #${adminChannel.name}`);
+				} catch (err) {
+					console.error('Error sending proof embed to admin channel:', err);
+				}
 			}
 
 			if (!sentToAdminChannel) {
-				const { getAdmins } = require('../services/admins');
-				const ownerId = process.env.OWNER_DISCORD_ID ? process.env.OWNER_DISCORD_ID.trim() : null;
-				const adminList = getAdmins();
-
-				const targetAdminIds = new Set();
-				if (ownerId) targetAdminIds.add(ownerId);
-				adminList.forEach(a => targetAdminIds.add(a.id));
-
-				for (const adminId of targetAdminIds) {
-					try {
-						const adminUser = await client.users.fetch(adminId);
-						if (adminUser) {
-							await adminUser.send({ embeds: [adminProofEmbed], components: [row] });
-						}
-					} catch (err) {}
-				}
+				console.warn(`[PROOF VERIFICATION WARNING] Admin channel tidak terdeteksi untuk guild ${interaction.guild?.name}. Pastikan ADMIN_CHANNEL_ID di .env terisi dengan ID text channel admin.`);
 			}
 			return;
 		}
