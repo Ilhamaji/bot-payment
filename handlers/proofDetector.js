@@ -4,7 +4,8 @@ const {
 	pendingAdminDeliveryProof, 
 	executeOrderApproval, 
 	buyerPendingProofs, 
-	disableQrisButtonForOrder 
+	disableQrisButtonForOrder,
+	markProofSubmittedForOrder 
 } = require('../services/ticketManager');
 
 async function handleProofMessageDetection(message, client) {
@@ -84,6 +85,7 @@ async function handleProofMessageDetection(message, client) {
 		const orderId = channelName.toUpperCase();
 
 		await disableQrisButtonForOrder(orderId, message.channel);
+		markProofSubmittedForOrder(orderId);
 
 		if (buyerPendingProofs.has(orderId)) {
 			const prevData = buyerPendingProofs.get(orderId);

@@ -18,6 +18,7 @@ const {
 	cartMessages,
 	disableQrisButtonForOrder, 
 	deleteTicketCreationMessage, 
+	markProofSubmittedForOrder,
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
 	deleteAdminChannelMessagesForOrder,
@@ -939,6 +940,7 @@ async function handleBuyerInteraction(interaction, client) {
 			const orderId = customId.replace('confirm_buyer_proof_', '');
 
 			await disableQrisButtonForOrder(orderId, interaction.channel);
+			markProofSubmittedForOrder(orderId);
 
 			const pendingProof = buyerPendingProofs.get(orderId);
 			const proofUrl = pendingProof ? pendingProof.proofUrl : (interaction.message.embeds[0]?.image?.url || null);

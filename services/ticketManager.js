@@ -20,6 +20,47 @@ const buyerPendingProofs = new Map();
 const qrisMessages = new Map();
 const pendingAdminDeliveryProof = new Map();
 const adminInstructionInteractions = new Map();
+const submittedProofOrders = new Set();
+
+function markProofSubmittedForOrder(orderId) {
+	if (!orderId) return;
+	submittedProofOrders.add(orderId.toUpperCase());
+}
+
+async function isProofSubmittedForOrder(orderId, channel = null) {
+	const cleanId = orderId ? orderId.toUpperCase() : null;
+
+	if (cleanId && (submittedProofOrders.has(cleanId) || buyerPendingProofs.has(cleanId))) {
+		return true;
+	}
+
+	try {
+		const { getPurchaseById } = require('./supabase');
+		const purchase = await getPurchaseById(cleanId);
+		if (purchase && (purchase.proof_image || ['paid', 'pending_approval', 'fulfilled', 'delivering'].includes(purchase.status))) {
+			markProofSubmittedForOrder(cleanId);
+			return true;
+		}
+	} catch (e) {}
+
+	if (channel && channel.messages) {
+		try {
+			const messages = await channel.messages.fetch({ limit: 30 });
+			for (const [_, msg] of messages) {
+				if (msg.attachments && msg.attachments.some(a => a.contentType && a.contentType.startsWith('image/'))) {
+					markProofSubmittedForOrder(cleanId);
+					return true;
+				}
+				if (msg.embeds && msg.embeds.some(e => (e.title && (e.title.includes('BUKTI TRANSFER') || e.title.includes('VERIFIKASI'))) || (e.description && e.description.includes('bukti transfer')))) {
+					markProofSubmittedForOrder(cleanId);
+					return true;
+				}
+			}
+		} catch (e) {}
+	}
+
+	return false;
+}
 
 async function disableQrisButtonForOrder(orderId, channel) {
 	const cleanOrderId = orderId ? orderId.toUpperCase() : null;
@@ -727,8 +768,15 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 				if (isTicketChannel) {
 					const channelAge = now - channel.createdTimestamp;
 					if (channelAge >= THIRTY_MINUTES_MS) {
-						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>30 Menit): #${channel.name}`);
 						const orderId = channel.name.toUpperCase();
+						const hasProof = await isProofSubmittedForOrder(orderId, channel);
+
+						if (hasProof) {
+							console.log(`[AUTO-CLEANUP SKIP] Tiket #${channel.name} (>30 Menit) DIBIARKAN TETAP BUKA karena pembeli sudah meng-upload bukti transfer!`);
+							continue;
+						}
+
+						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>30 Menit): #${channel.name}`);
 						await deleteAdminChannelMessagesForOrder(clientInstance, orderId);
 						await deleteTicketCreationMessage(orderId, channel.id);
 						try {
@@ -772,6 +820,8 @@ module.exports = {
 	createTicketChannel,
 	deleteAdminChannelMessagesForOrder,
 	checkAndCleanupExpiredTickets,
+	markProofSubmittedForOrder,
+	isProofSubmittedForOrder,
 	getCart,
 	initCart,
 	addItemToCart,
