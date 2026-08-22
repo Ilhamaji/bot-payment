@@ -116,15 +116,15 @@ function buildPanduanEmbed(category = 'semua') {
 			`Halo Kak! Selamat datang di **Bebey Store**! 💖\n` +
 			`Berikut adalah panduan lengkap cara pembayaran & transaksi untuk setiap kategori item toko kami:\n\n` +
 			`💎 **1. ROBUX VIA USERNAME (GAMEPASS / PAYOUT)**\n` +
-			`• Pembayaran QRIS $\\rightarrow$ Kirim Username $\\rightarrow$ Admin kirim via Gamepass/Group (Pending Robux 5-7 hari).\n\n` +
+			`• Pembayaran QRIS ➡️ Kirim Username ➡️ Admin kirim via Gamepass/Group (Pending Robux 5-7 hari).\n\n` +
 			`🗡️ **2. ITEM, SKIN & PET FISH IT**\n` +
-			`• Pembayaran QRIS $\\rightarrow$ Masuk **Private World Toko** $\\rightarrow$ Trade/Give item dengan Admin di game.\n\n` +
+			`• Pembayaran QRIS ➡️ Masuk **Private World Toko** ➡️ Trade/Give item dengan Admin di game.\n\n` +
 			`🎟️ **3. GAMEPASS & TOKEN FISH IT**\n` +
-			`• Pembayaran QRIS $\\rightarrow$ Berikan Username Roblox $\\rightarrow$ Gift Gamepass / Token dikirim langsung ke akun.\n\n` +
+			`• Pembayaran QRIS ➡️ Berikan Username Roblox ➡️ Gift Gamepass / Token dikirim langsung ke akun.\n\n` +
 			`👤 **4. AKUN FISH IT (AKUN ROBLOX)**\n` +
-			`• Cek spesifikasi akun di <#1538945046106079402> $\\rightarrow$ Bayar QRIS $\\rightarrow$ Admin berikan Username & Password akun di tiket $\\rightarrow$ Amankan akun.\n\n` +
+			`• Cek spesifikasi akun di <#1538945046106079402> ➡️ Bayar QRIS ➡️ Admin berikan Username & Password akun di tiket ➡️ Amankan akun.\n\n` +
 			`⚡ **5. JOKI FISH IT & PTPT**\n` +
-			`• Bayar QRIS $\\rightarrow$ Berikan data login ke Admin $\\rightarrow$ Proses Joki / AFK $\\rightarrow$ Selesai & Amankan akun.\n\n` +
+			`• Bayar QRIS ➡️ Berikan data login ke Admin ➡️ Proses Joki / AFK ➡️ Selesai & Amankan akun.\n\n` +
 			`👇 *Gunakan menu di bawah untuk melihat panduan detail per kategori:*`
 		)
 		.setTimestamp()
