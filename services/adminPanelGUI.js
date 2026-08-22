@@ -772,13 +772,13 @@ async function handleAdminPanelInteraction(interaction, client) {
 
 			const modal = new ModalBuilder()
 				.setCustomId('ap_modal_global_ps')
-				.setTitle('LINK PRIVATE WORLD / SERVER TOKO');
+				.setTitle('PRIVATE WORLD / ADD AKUN ROBLOX');
 
 			const psInput = new TextInputBuilder()
 				.setCustomId('global_ps_url')
-				.setLabel('URL LINK PRIVATE WORLD / SERVER (ROBLOX):')
+				.setLabel('URL LINK ATAU USERNAME ADD AKUN ROBLOX:')
 				.setStyle(TextInputStyle.Paragraph)
-				.setPlaceholder('Cth: https://www.roblox.com/games/share?code=... (kosongkan jika tidak ada)')
+				.setPlaceholder('Cth Link: https://www.roblox.com/... ATAU Cth Username: Add Akun: BebeyStoreAdmin1')
 				.setValue(currentPsUrl || '')
 				.setRequired(false);
 
@@ -1167,25 +1167,29 @@ async function handleAdminPanelInteraction(interaction, client) {
 			}
 		}
 
-		// Submit Global Link Private World / Server
+		// Submit Global Link Private World / Server / Add Akun
 		if (customId === 'ap_modal_global_ps') {
 			if (!isAdmin(interaction.user.id)) {
-				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat mengedit Link Private World.', flags: MessageFlags.Ephemeral });
+				return interaction.reply({ content: '❌ **AKSES DITOLAK!** Hanya Admin yang dapat mengedit Private World / Add Akun.', flags: MessageFlags.Ephemeral });
 			}
 
 			const psUrl = interaction.fields.getTextInputValue('global_ps_url').trim();
 			const { setGlobalPrivateServerUrl } = require('./panelManager');
+			const { refreshAllApprovedTicketsPrivateServer } = require('./ticketManager');
 
 			setGlobalPrivateServerUrl(psUrl);
 
 			const displayStatus = psUrl !== '' 
-				? `\n\n🌐 **URL Aktif saat ini:**\n\`${psUrl}\`` 
-				: '\n\n⚠️ **URL saat ini dikosongkan.**';
+				? `\n\n🌐 / 👤 **Informasi Aktif saat ini:**\n\`${psUrl}\`` 
+				: '\n\n⚠️ **Informasi saat ini dikosongkan.**';
 
-			return interaction.reply({
-				content: `✅ **LINK PRIVATE WORLD TOKO BERHASIL DIPERBARUI!**${displayStatus}\n\n*Produk yang dicentang "🌐 Gunakan Private World Toko" akan menampilkan link ini ke pembeli.*`,
+			await interaction.reply({
+				content: `✅ **PANDUAN PRIVATE WORLD / ADD AKUN BERHASIL DIPERBARUI!**${displayStatus}\n\n*Pesan di seluruh channel tiket aktif yang sudah di-approve otomatis ter-refresh secara real-time!*`,
 				flags: MessageFlags.Ephemeral
 			});
+
+			refreshAllApprovedTicketsPrivateServer(interaction.client);
+			return true;
 		}
 
 		// Submit Tambah Item

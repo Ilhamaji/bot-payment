@@ -271,17 +271,25 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 
 				let psGuideSection = '';
 				let btnPs = null;
-				if (activePsUrl) {
-					psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
-						`[🌐 Klik Untuk Masuk Private World Toko](${activePsUrl})\n` +
-						`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
+				if (activePsUrl && activePsUrl.trim() !== '') {
+					const cleanPs = activePsUrl.trim();
+					if (cleanPs.startsWith('http://') || cleanPs.startsWith('https://')) {
+						psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
+							`[🌐 Klik Untuk Masuk Private World Toko](${cleanPs})\n` +
+							`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
 
-					try {
-						btnPs = new ButtonBuilder()
-							.setLabel('🌐 Masuk Private World')
-							.setStyle(ButtonStyle.Link)
-							.setURL(activePsUrl);
-					} catch (e) {}
+						try {
+							btnPs = new ButtonBuilder()
+								.setLabel('🌐 Masuk Private World')
+								.setStyle(ButtonStyle.Link)
+								.setURL(cleanPs);
+						} catch (e) {}
+					} else {
+						const cleanAccountName = cleanPs.replace(/^add akun:?\s*/i, '');
+						psGuideSection = `\n\n👤 **PANDUAN PENGAMBILAN ITEM (ADD AKUN ROBLOX):**\n` +
+							`👤 **Add Akun Roblox:** \`${cleanAccountName}\`\n` +
+							`*Silakan add / follow akun Roblox di atas untuk masuk ke server/world dan mengambil item pesanan kamu!*`;
+					}
 				}
 
 				const approvedEmbed = new EmbedBuilder()
@@ -1140,6 +1148,124 @@ async function sendTicketLogEmbed(guild, { orderId, channel, openedBy, closedBy,
 	}
 }
 
+async function refreshAllApprovedTicketsPrivateServer(clientInstance) {
+	if (!clientInstance) return;
+	try {
+		const guilds = clientInstance.guilds.cache;
+		for (const [guildId, guild] of guilds) {
+			const channels = await guild.channels.fetch();
+			for (const [channelId, ticketChannel] of channels) {
+				if (!ticketChannel || ticketChannel.type !== ChannelType.GuildText) continue;
+
+				const isTicketChannel = ticketChannel.name && (
+					ticketChannel.name.includes('-bb-') || 
+					(process.env.TICKET_CATEGORY_ID && ticketChannel.parentId === process.env.TICKET_CATEGORY_ID.trim())
+				);
+
+				if (!isTicketChannel) continue;
+
+				const msgs = await ticketChannel.messages.fetch({ limit: 25 });
+				const approvedMsg = msgs.find(m => 
+					m.embeds.length > 0 && 
+					m.embeds[0].title && 
+					m.embeds[0].title.includes('PEMBAYARAN DI-APPROVE')
+				);
+
+				if (!approvedMsg) continue;
+
+				const orderId = ticketChannel.name.toUpperCase();
+				const cart = getCart(orderId);
+
+				let activePsUrl = null;
+				if (cart && cart.items) {
+					const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('./panelManager');
+					const globalPsUrl = getGlobalPrivateServerUrl();
+					for (const item of cart.items) {
+						const isCatPsAllowed = isCategoryPrivateServerAllowed(item.category || 'General');
+						if (isCatPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') {
+							activePsUrl = globalPsUrl.trim();
+							break;
+						} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {
+							activePsUrl = item.privateServerUrl.trim();
+							break;
+						}
+					}
+				} else {
+					const { getGlobalPrivateServerUrl } = require('./panelManager');
+					activePsUrl = getGlobalPrivateServerUrl();
+				}
+
+				let psGuideSection = '';
+				let btnPs = null;
+
+				if (activePsUrl && activePsUrl.trim() !== '') {
+					const cleanPs = activePsUrl.trim();
+					if (cleanPs.startsWith('http://') || cleanPs.startsWith('https://')) {
+						psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
+							`[🌐 Klik Untuk Masuk Private World Toko](${cleanPs})\n` +
+							`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
+
+						try {
+							btnPs = new ButtonBuilder()
+								.setLabel('🌐 Masuk Private World')
+								.setStyle(ButtonStyle.Link)
+								.setURL(cleanPs);
+						} catch (e) {}
+					} else {
+						const cleanAccountName = cleanPs.replace(/^add akun:?\s*/i, '');
+						psGuideSection = `\n\n👤 **PANDUAN PENGAMBILAN ITEM (ADD AKUN ROBLOX):**\n` +
+							`👤 **Add Akun Roblox:** \`${cleanAccountName}\`\n` +
+							`*Silakan add / follow akun Roblox di atas untuk masuk ke server/world dan mengambil item pesanan kamu!*`;
+					}
+				}
+
+				const oldEmbed = approvedMsg.embeds[0];
+				let currentDesc = oldEmbed.description || '';
+
+				let cleanDesc = currentDesc;
+				if (cleanDesc.includes('\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO')) {
+					const idx = cleanDesc.indexOf('\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO');
+					const endIdx = cleanDesc.indexOf('\n\n⚠️ **PENTING:**');
+					if (endIdx > idx) {
+						cleanDesc = cleanDesc.substring(0, idx) + cleanDesc.substring(endIdx);
+					}
+				} else if (cleanDesc.includes('\n\n👤 **PANDUAN PENGAMBILAN ITEM')) {
+					const idx = cleanDesc.indexOf('\n\n👤 **PANDUAN PENGAMBILAN ITEM');
+					const endIdx = cleanDesc.indexOf('\n\n⚠️ **PENTING:**');
+					if (endIdx > idx) {
+						cleanDesc = cleanDesc.substring(0, idx) + cleanDesc.substring(endIdx);
+					}
+				}
+				const newDesc = cleanDesc.replace('⚠️ **PENTING:**', `${psGuideSection}\n\n⚠️ **PENTING:**`);
+
+				const updatedEmbed = EmbedBuilder.from(oldEmbed).setDescription(newDesc);
+
+				const finishTicketBtn = new ButtonBuilder()
+					.setCustomId('finish_ticket_button')
+					.setLabel('✅ Selesai (Item Sudah Diterima)')
+					.setStyle(ButtonStyle.Success);
+
+				const saveDmBtn = new ButtonBuilder()
+					.setCustomId(`save_dm_proof_${orderId}`)
+					.setLabel('📩 Simpan Bukti ke DM')
+					.setStyle(ButtonStyle.Primary);
+
+				const finishRow = new ActionRowBuilder();
+				if (btnPs) finishRow.addComponents(btnPs);
+				finishRow.addComponents(finishTicketBtn, saveDmBtn);
+
+				await approvedMsg.edit({
+					embeds: [updatedEmbed],
+					components: [finishRow]
+				});
+				console.log(`[PS REFRESH] Realtime update Private Server / Add Akun untuk tiket #${ticketChannel.name}`);
+			}
+		}
+	} catch (err) {
+		console.error('Error refreshing approved tickets Private Server:', err);
+	}
+}
+
 module.exports = {
 	userEphemeralInteractions,
 	ticketCreationInteractions,
@@ -1168,5 +1294,6 @@ module.exports = {
 	initCart,
 	addItemToCart,
 	buildCartEmbedAndComponents,
-	buildQrisPaymentEmbedForCart
+	buildQrisPaymentEmbedForCart,
+	refreshAllApprovedTicketsPrivateServer
 };
