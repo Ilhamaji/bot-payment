@@ -82,11 +82,9 @@ module.exports = [
     // 4. Gamepass Fish It
     { "id": "gp_advance_luck", "name": "Advance Luck", "price": 50000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_ability_spin", "name": "Ability Spin", "price": 5000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
-    { "id": "gp_bundle_galactic", "name": "Bundle Galactic Sniper", "price": 95000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_double_xp", "name": "Double XP", "price": 18000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_egg_spin", "name": "Egg Spin", "price": 10000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_frosted_guitar", "name": "Frosted Guitar", "price": 85000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
-    { "id": "gp_galaxy_spin", "name": "Galaxy Spin", "price": 6000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_mutation", "name": "Mutation", "price": 30000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_sell_anywhere", "name": "Sell Anywhere", "price": 29000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
     { "id": "gp_small_luck", "name": "Small Luck", "price": 6000, "category": "Gamepass Fish It", "emoji": "🎟️", "requireUsername": true, "requireLimitCheck": false },
