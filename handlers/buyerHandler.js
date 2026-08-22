@@ -514,6 +514,14 @@ async function handleBuyerInteraction(interaction, client) {
 	// 2. Modal Submissions (Form Beli & Ganti Username & Reason Close)
 	if (interaction.isModalSubmit()) {
 		if (interaction.customId.startsWith('modal_close_ticket_reason_')) {
+			const { isAdmin } = require('../services/admins');
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({
+					content: '⛔ **AKSES DITOLAK!**\n> Hanya Admin Bebey Store yang memiliki akses untuk menutup tiket.',
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
 			const orderId = interaction.customId.replace('modal_close_ticket_reason_', '');
 			const reason = interaction.fields.getTextInputValue('close_reason').trim() || 'Selesai';
 			const ticketChan = interaction.channel;
@@ -1502,8 +1510,16 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
-		// Close Ticket Button - Pop modal for reason
+		// Close Ticket Button - Pop modal for reason (KHUSUS ADMIN)
 		if (customId === 'close_ticket_button' || customId.startsWith('btn_close_ticket_')) {
+			const { isAdmin } = require('../services/admins');
+			if (!isAdmin(interaction.user.id)) {
+				return interaction.reply({
+					content: '⛔ **AKSES DITOLAK!**\n> Tombol **🔒 Batal / Tutup Tiket** hanya dapat diakses dan digunakan oleh **Admin Bebey Store**.\n> Jika Anda memerlukan bantuan, silakan gunakan tombol **🆘 Bantuan Admin**.',
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
 			const ticketChan = interaction.channel;
 			const orderId = ticketChan.name ? ticketChan.name.toUpperCase() : '';
 
