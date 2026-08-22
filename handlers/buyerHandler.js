@@ -22,6 +22,8 @@ const {
 	sendTicketLogEmbed,
 	getUserActiveTicket,
 	getAdminChannel,
+	isSosActiveForChannel,
+	setSosActiveForChannel,
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
 	deleteAdminChannelMessagesForOrder,
@@ -1471,6 +1473,18 @@ async function handleBuyerInteraction(interaction, client) {
 
 		// SOS Help Button
 		if (customId === 'sos_help_button') {
+			const channelId = interaction.channelId;
+			if (isSosActiveForChannel(channelId)) {
+				return interaction.reply({
+					content: `⚠️ **PANGGILAN BANTUAN SUDAH AKTIF!**\n\n` +
+						`> Anda telah memanggil bantuan Admin sebelumnya untuk tiket ini.\n` +
+						`> Mohon tunggu sejenak hingga Admin merespon & menekan tombol **"✅ Bantuan Selesai"** pada Admin Channel.`,
+					flags: MessageFlags.Ephemeral
+				});
+			}
+
+			setSosActiveForChannel(channelId, true);
+
 			const sosUserEmbed = new EmbedBuilder()
 				.setTitle('🆘  BEBEY STORE — BANTUAN ADMIN DIPANGGIL')
 				.setColor(0xED4245)

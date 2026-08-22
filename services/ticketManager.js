@@ -22,6 +22,23 @@ const pendingAdminDeliveryProof = new Map();
 const adminInstructionInteractions = new Map();
 const submittedProofOrders = new Set();
 const ticketOwnerMap = new Map();
+const activeSosTickets = new Set();
+
+function isSosActiveForChannel(channelId) {
+	if (!channelId) return false;
+	return activeSosTickets.has(channelId);
+}
+
+function setSosActiveForChannel(channelId, isActive = true) {
+	if (!channelId) return;
+	if (isActive) activeSosTickets.add(channelId);
+	else activeSosTickets.delete(channelId);
+}
+
+function clearSosForChannel(channelId) {
+	if (!channelId) return;
+	activeSosTickets.delete(channelId);
+}
 
 function saveTicketOwner(channelId, orderId, userId, openTime) {
 	if (channelId) {
@@ -1107,6 +1124,9 @@ module.exports = {
 	checkAndCleanupExpiredTickets,
 	getUserActiveTicket,
 	getAdminChannel,
+	isSosActiveForChannel,
+	setSosActiveForChannel,
+	clearSosForChannel,
 	sendTicketLogEmbed,
 	getOrCreateTicketLogChannel,
 	markProofSubmittedForOrder,

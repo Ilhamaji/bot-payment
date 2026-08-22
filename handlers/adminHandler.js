@@ -96,12 +96,15 @@ async function handleAdminInteraction(interaction, client) {
 
 			const ticketChannelId = customId.replace('sos_done_', '');
 
+			const { clearSosForChannel } = require('../services/ticketManager');
+			clearSosForChannel(ticketChannelId);
+
 			try {
 				await interaction.message.delete();
 			} catch (e) {}
 
 			await interaction.reply({
-				content: '✅ **Panggilan bantuan SOS diselesaikan & notifikasi berhasil dihapus dari Admin Channel.**',
+				content: '✅ **Panggilan bantuan SOS diselesaikan & notifikasi berhasil dihapus dari Admin Channel.**\n> *Pembeli sekarang dapat memanggil bantuan Admin kembali jika diperlukan.*',
 				flags: MessageFlags.Ephemeral
 			});
 
@@ -111,7 +114,7 @@ async function handleAdminInteraction(interaction, client) {
 					const resolvedEmbed = new EmbedBuilder()
 						.setTitle('✅  BEBEY STORE — BANTUAN SELESAI')
 						.setColor(0x2ECC71)
-						.setDescription(`Admin ${interaction.user} telah menyelesaikan panggilan bantuan Anda. Terima kasih!`)
+						.setDescription(`Admin ${interaction.user} telah menyelesaikan panggilan bantuan Anda. Tombol Bantuan Admin telah di-reset dan dapat digunakan kembali jika diperlukan. Terima kasih!`)
 						.setTimestamp();
 
 					await ticketChannel.send({ embeds: [resolvedEmbed] });
