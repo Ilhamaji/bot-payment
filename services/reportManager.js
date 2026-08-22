@@ -199,12 +199,15 @@ async function generateExcelBuffer(year, month, transactions, customTitle = null
  * Mengirim Laporan SELURUH Penjualan (All-Time) ke Admin
  */
 async function sendAllTimeReport(clientInstance, targetChannelId = null) {
-    const transactions = await fetchAllTransactions();
-    const totalTransactions = transactions ? transactions.length : 0;
-    const totalRevenue = transactions ? transactions.reduce((sum, t) => sum + (Number(t.price) || 0), 0) : 0;
+    const rawTransactions = await fetchAllTransactions();
+    const transactions = (rawTransactions || []).filter(t => (t.status || '').toLowerCase() === 'fulfilled');
 
-    const excelRes = await generateExcelBuffer(null, null, transactions || [], 'SEMUA TRANSAKSI (ALL-TIME)');
+    const excelRes = await generateExcelBuffer(null, null, transactions, 'SEMUA TRANSAKSI (ALL-TIME)');
     const buffer = (excelRes && excelRes.buffer) ? excelRes.buffer : excelRes;
+
+    const totalTransactions = excelRes.totalTransactions !== undefined ? excelRes.totalTransactions : transactions.length;
+    const totalRevenue = excelRes.totalRevenue !== undefined ? excelRes.totalRevenue : transactions.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
+
     const fileName = `Laporan_Penjualan_Semua_Data_BebeyStore.xlsx`;
     const attachment = new AttachmentBuilder(buffer, { name: fileName });
 

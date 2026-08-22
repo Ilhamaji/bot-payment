@@ -96,18 +96,22 @@ async function createPurchase(orderId, robloxUsername, itemName, price, uniqueCo
  */
 async function updatePurchaseStatus(orderId, newStatus) {
     try {
+        if (!orderId) return false;
+        const cleanOrderId = orderId.toUpperCase().trim();
+        const cleanStatus = newStatus ? newStatus.toLowerCase().trim() : 'pending';
+
         if (useNativeSqlite && db) {
-            const stmt = db.prepare(`UPDATE purchases SET status = ? WHERE order_id = ?`);
-            stmt.run(newStatus, orderId);
+            const stmt = db.prepare(`UPDATE purchases SET status = ? WHERE UPPER(order_id) = ?`);
+            stmt.run(cleanStatus, cleanOrderId);
         } else {
             const list = loadJsonStore();
-            const item = list.find(p => p.order_id === orderId);
+            const item = list.find(p => (p.order_id || '').toUpperCase() === cleanOrderId);
             if (item) {
-                item.status = newStatus;
+                item.status = cleanStatus;
                 saveJsonStore(list);
             }
         }
-        console.log(`[SQLITE] Order ${orderId} diupdate menjadi ${newStatus}`);
+        console.log(`[SQLITE] Status order ${cleanOrderId} diupdate menjadi ${cleanStatus}`);
         return true;
     } catch (err) {
         console.error('Error updating purchase status in SQLite:', err);
@@ -176,11 +180,11 @@ async function getTopSpenders(limit = 10) {
 async function getAllPurchases() {
     try {
         if (useNativeSqlite && db) {
-            const stmt = db.prepare(`SELECT * FROM purchases WHERE status = 'fulfilled' ORDER BY created_at ASC`);
+            const stmt = db.prepare(`SELECT * FROM purchases WHERE LOWER(status) = 'fulfilled' ORDER BY created_at ASC`);
             return stmt.all();
         } else {
             return loadJsonStore()
-                .filter(p => p.status === 'fulfilled')
+                .filter(p => (p.status || '').toLowerCase() === 'fulfilled')
                 .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         }
     } catch (err) {

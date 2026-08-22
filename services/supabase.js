@@ -79,26 +79,27 @@ async function createPurchase(orderId, robloxUsername, itemName, price, uniqueCo
  * Update status pesanan
  */
 async function updatePurchaseStatus(orderId, newStatus) {
-  if (useSqlite || !supabase) {
-    return sqlite.updatePurchaseStatus(orderId, newStatus);
-  }
+  if (!orderId) return false;
+  const cleanId = orderId.toUpperCase().trim();
+  const cleanStatus = newStatus ? newStatus.toLowerCase().trim() : 'pending';
+
+  // Always update SQLite as primary local store
+  sqlite.updatePurchaseStatus(cleanId, cleanStatus);
+
+  if (useSqlite || !supabase) return true;
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('purchases')
-      .update({ status: newStatus })
-      .eq('order_id', orderId);
+      .update({ status: cleanStatus })
+      .ilike('order_id', cleanId);
 
     if (error) {
-      console.error('Error updating purchase status in Supabase, falling back to SQLite:', error);
-      return sqlite.updatePurchaseStatus(orderId, newStatus);
+      console.warn('Error updating purchase status in Supabase:', error);
     }
-
-    console.log(`[SUPABASE] Order ${orderId} diupdate menjadi ${newStatus}`);
     return true;
   } catch (err) {
-    console.error('Unexpected error during Supabase update, falling back to SQLite:', err);
-    return sqlite.updatePurchaseStatus(orderId, newStatus);
+    return true;
   }
 }
 
