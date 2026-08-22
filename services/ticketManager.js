@@ -777,6 +777,15 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 						}
 
 						console.log(`[AUTO-CLEANUP] Menutup tiket kadaluarsa (>30 Menit): #${channel.name}`);
+						await sendTicketLogEmbed(guild, {
+							orderId: orderId,
+							openedBy: null,
+							closedBy: 'System (Auto-Cleanup)',
+							openTime: channel.createdTimestamp,
+							claimedBy: null,
+							reason: 'Tiket Kadaluarsa (>30 Menit Tanpa Transaksi)'
+						});
+
 						await deleteAdminChannelMessagesForOrder(clientInstance, orderId);
 						await deleteTicketCreationMessage(orderId, channel.id);
 						try {
@@ -805,6 +814,115 @@ async function checkAndCleanupExpiredTickets(clientInstance) {
 	}
 }
 
+async function getOrCreateTicketLogChannel(guild) {
+	if (!guild) return null;
+
+	const envLogId = (process.env.TICKET_LOG_CHANNEL_ID || process.env.LOG_CHANNEL_ID || '').trim();
+	if (envLogId) {
+		try {
+			const ch = await guild.channels.fetch(envLogId);
+			if (ch) return ch;
+		} catch (e) {}
+	}
+
+	const { getPanelLocation, saveTicketLogLocation } = require('./panelManager');
+	const loc = getPanelLocation();
+	if (loc && loc.ticketLogChannelId) {
+		try {
+			const ch = await guild.channels.fetch(loc.ticketLogChannelId);
+			if (ch) return ch;
+		} catch (e) {}
+	}
+
+	const existingCh = guild.channels.cache.find(c => 
+		c.type === ChannelType.GuildText && 
+		(c.name.includes('ticket-log') || c.name.includes('log-tiket') || c.name === 'logs')
+	);
+	if (existingCh) {
+		saveTicketLogLocation(existingCh.id);
+		return existingCh;
+	}
+
+	try {
+		const newLogCh = await guild.channels.create({
+			name: 'ticket-logs',
+			type: ChannelType.GuildText,
+			topic: '📝 Log Riwayat Penutupan Tiket Bebey Store',
+			permissionOverwrites: [
+				{
+					id: guild.roles.everyone.id,
+					deny: [PermissionFlagsBits.SendMessages],
+					allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory]
+				}
+			]
+		});
+		saveTicketLogLocation(newLogCh.id);
+		return newLogCh;
+	} catch (err) {
+		console.error('Error creating #ticket-logs channel:', err);
+		return null;
+	}
+}
+
+async function sendTicketLogEmbed(guild, { orderId, openedBy, closedBy, openTime, claimedBy, reason }) {
+	try {
+		const logChannel = await getOrCreateTicketLogChannel(guild);
+		if (!logChannel) return;
+
+		let openedByTag = 'Unknown';
+		if (openedBy) {
+			if (typeof openedBy === 'object' && openedBy.id) openedByTag = `<@${openedBy.id}>`;
+			else if (String(openedBy).startsWith('<@')) openedByTag = openedBy;
+			else if (/^\d+$/.test(String(openedBy))) openedByTag = `<@${openedBy}>`;
+			else openedByTag = openedBy;
+		}
+
+		let closedByTag = 'System';
+		if (closedBy) {
+			if (typeof closedBy === 'object' && closedBy.id) closedByTag = `<@${closedBy.id}>`;
+			else if (String(closedBy).startsWith('<@')) closedByTag = closedBy;
+			else if (/^\d+$/.test(String(closedBy))) closedByTag = `<@${closedBy}>`;
+			else closedByTag = closedBy;
+		}
+
+		let claimedByStr = 'Not claimed';
+		if (claimedBy) {
+			if (typeof claimedBy === 'object' && claimedBy.id) claimedByStr = `<@${claimedBy.id}>`;
+			else if (String(claimedBy).startsWith('<@')) claimedByStr = claimedBy;
+			else if (/^\d+$/.test(String(claimedBy))) claimedByStr = `<@${claimedBy}>`;
+			else claimedByStr = claimedBy;
+		}
+
+		let formatOpenTime = 'N/A';
+		if (openTime) {
+			const timeMs = typeof openTime === 'number' ? openTime : new Date(openTime).getTime();
+			if (!isNaN(timeMs)) {
+				formatOpenTime = `<t:${Math.floor(timeMs / 1000)}:f>`;
+			}
+		}
+
+		const cleanOrderId = orderId ? orderId.replace(/^TICKET-/, '').replace(/^BB-/, '') : 'N/A';
+
+		const logEmbed = new EmbedBuilder()
+			.setTitle('Ticket Closed')
+			.setColor(0x2ECC71)
+			.addFields(
+				{ name: '#️⃣ Ticket ID', value: `${cleanOrderId}`, inline: true },
+				{ name: '✅ Opened By', value: `${openedByTag}`, inline: true },
+				{ name: '⛔ Closed By', value: `${closedByTag}`, inline: true },
+				{ name: '🕒 Open Time', value: `${formatOpenTime}`, inline: true },
+				{ name: '👤 Claimed By', value: `${claimedByStr}`, inline: true },
+				{ name: '❓ Reason', value: `${reason || 'Selesai'}`, inline: false }
+			)
+			.setTimestamp();
+
+		await logChannel.send({ embeds: [logEmbed] });
+		console.log(`[TICKET-LOG] Log penutupan tiket ${cleanOrderId} berhasil dikirim ke #${logChannel.name}`);
+	} catch (err) {
+		console.error('Error sending ticket log embed:', err);
+	}
+}
+
 module.exports = {
 	userEphemeralInteractions,
 	ticketCreationInteractions,
@@ -820,6 +938,8 @@ module.exports = {
 	createTicketChannel,
 	deleteAdminChannelMessagesForOrder,
 	checkAndCleanupExpiredTickets,
+	sendTicketLogEmbed,
+	getOrCreateTicketLogChannel,
 	markProofSubmittedForOrder,
 	isProofSubmittedForOrder,
 	getCart,

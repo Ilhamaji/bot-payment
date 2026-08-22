@@ -261,6 +261,20 @@ function saveLeaderboardLocation(channelId, leaderboardMessageId) {
     }
 }
 
+function saveTicketLogLocation(channelId) {
+    try {
+        const configDir = path.dirname(configFile);
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        const current = getPanelLocation();
+        current.ticketLogChannelId = channelId;
+        fs.writeFileSync(configFile, JSON.stringify(current, null, 4), 'utf8');
+    } catch (err) {
+        console.error('Error saving ticket log channel config:', err);
+    }
+}
+
 function savePanelLocation(channelId, leaderboardMessageId, catalogMessageId) {
     if (catalogMessageId) saveCatalogLocation(channelId, catalogMessageId);
     if (leaderboardMessageId) saveLeaderboardLocation(channelId, leaderboardMessageId);
@@ -595,6 +609,7 @@ module.exports = {
     savePanelLocation,
     saveCatalogLocation,
     saveLeaderboardLocation,
+    saveTicketLogLocation,
     resetLeaderboardTime,
     getPanelLocation,
     getGlobalPrivateServerUrl,

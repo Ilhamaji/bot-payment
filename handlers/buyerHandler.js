@@ -19,6 +19,7 @@ const {
 	disableQrisButtonForOrder, 
 	deleteTicketCreationMessage, 
 	markProofSubmittedForOrder,
+	sendTicketLogEmbed,
 	buildQrisPaymentEmbed, 
 	createTicketChannel, 
 	deleteAdminChannelMessagesForOrder,
@@ -510,8 +511,67 @@ async function handleBuyerInteraction(interaction, client) {
 		}
 	}
 
-	// 2. Modal Submissions (Form Beli & Ganti Username)
+	// 2. Modal Submissions (Form Beli & Ganti Username & Reason Close)
 	if (interaction.isModalSubmit()) {
+		if (interaction.customId.startsWith('modal_close_ticket_reason_')) {
+			const orderId = interaction.customId.replace('modal_close_ticket_reason_', '');
+			const reason = interaction.fields.getTextInputValue('close_reason').trim() || 'Selesai';
+			const ticketChan = interaction.channel;
+
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+			const cart = getCart(orderId);
+			let openedBy = cart ? cart.userId : null;
+			let openTime = cart ? cart.createdTimestamp : (ticketChan ? ticketChan.createdTimestamp : Date.now());
+
+			if (!openedBy && orderId) {
+				try {
+					const purchase = await getPurchaseById(orderId);
+					if (purchase && purchase.buyer_id) {
+						openedBy = purchase.buyer_id;
+					}
+				} catch (e) {}
+			}
+
+			await sendTicketLogEmbed(interaction.guild, {
+				orderId: orderId || (ticketChan ? ticketChan.name : 'N/A'),
+				openedBy: openedBy || (ticketChan ? ticketChan.topic?.match(/<@!?(\d+)>/)?.[1] : null) || 'Unknown',
+				closedBy: interaction.user,
+				openTime: openTime,
+				claimedBy: null,
+				reason: reason
+			});
+
+			const closeEmbed = new EmbedBuilder()
+				.setTitle('🔒  BEBEY STORE — TIKET DITUTUP')
+				.setColor(0x7F8C8D)
+				.setDescription(`Channel tiket privat ini akan ditutup dan dihapus dalam **5 detik**...\n\n> ❓ **Alasan:** \`${reason}\``)
+				.setTimestamp();
+
+			await interaction.editReply({ content: '✅ Alasan tercatat. Tiket akan segera ditutup.' });
+			if (ticketChan) {
+				await ticketChan.send({ embeds: [closeEmbed] });
+			}
+
+			if (orderId) {
+				deleteAdminChannelMessagesForOrder(client, orderId).catch(err => console.warn('Cleanup warning:', err));
+			}
+			if (ticketChan) {
+				deleteTicketCreationMessage(orderId, ticketChan.id);
+			}
+
+			setTimeout(async () => {
+				try {
+					if (ticketChan) await ticketChan.delete();
+				} catch (err) {
+					if (err.code !== 10003 && err.status !== 404) {
+						console.error('Error deleting ticket channel:', err);
+					}
+				}
+			}, 5000);
+			return;
+		}
+
 		if (interaction.customId.startsWith('modal_buy_')) {
 			delete require.cache[require.resolve('../config/items')];
 			const currentItems = require('../config/items');
@@ -1442,38 +1502,25 @@ async function handleBuyerInteraction(interaction, client) {
 			return;
 		}
 
-		// Close Ticket Button
-		if (customId === 'close_ticket_button') {
+		// Close Ticket Button - Pop modal for reason
+		if (customId === 'close_ticket_button' || customId.startsWith('btn_close_ticket_')) {
 			const ticketChan = interaction.channel;
 			const orderId = ticketChan.name ? ticketChan.name.toUpperCase() : '';
 
-			const closeEmbed = new EmbedBuilder()
-				.setTitle('🔒  BEBEY STORE — TIKET DITUTUP')
-				.setColor(0x7F8C8D)
-				.setDescription('Channel tiket privat ini akan ditutup dan dihapus dalam **5 detik**...')
-				.setTimestamp();
+			const modal = new ModalBuilder()
+				.setCustomId(`modal_close_ticket_reason_${orderId}`)
+				.setTitle('Ticket Close Reason');
 
-			try {
-				if (!interaction.replied && !interaction.deferred) {
-					await interaction.reply({ embeds: [closeEmbed] });
-				}
-			} catch (e) {}
+			const reasonInput = new TextInputBuilder()
+				.setCustomId('close_reason')
+				.setLabel('ALASAN PENUTUPAN TIKET:')
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder('Contoh: Selesai, Batal Beli, Stok Kosong, dll.')
+				.setValue('Selesai')
+				.setRequired(true);
 
-			if (orderId) {
-				deleteAdminChannelMessagesForOrder(client, orderId).catch(err => console.warn('Cleanup warning:', err));
-			}
-			deleteTicketCreationMessage(orderId, ticketChan.id);
-
-			setTimeout(async () => {
-				try {
-					if (ticketChan) await ticketChan.delete();
-				} catch (err) {
-					if (err.code !== 10003 && err.status !== 404) {
-						console.error('Error deleting ticket channel:', err);
-					}
-				}
-			}, 5000);
-			return;
+			modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+			return interaction.showModal(modal);
 		}
 
 		// Finish Ticket Button
