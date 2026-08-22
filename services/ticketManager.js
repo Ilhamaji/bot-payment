@@ -239,6 +239,46 @@ function buildPrivateServerGuideSection(rawText) {
 	return { guideSection, btnPs };
 }
 
+async function findTicketChannelForOrder(guild, orderId) {
+	if (!guild || !orderId) return null;
+
+	const rawId = String(orderId).toLowerCase().trim();
+	const sanitizedId = rawId.replace(/_/g, '-');
+	const parts = rawId.split('-');
+	const shortCode = parts[parts.length - 1];
+
+	if (ticketOwnerMap.has(orderId.toUpperCase())) {
+		const owner = ticketOwnerMap.get(orderId.toUpperCase());
+		if (owner && owner.channelId) {
+			try {
+				const ch = await guild.channels.fetch(owner.channelId);
+				if (ch) return ch;
+			} catch (e) {}
+		}
+	}
+
+	try {
+		const channels = await guild.channels.fetch();
+		for (const [id, ch] of channels) {
+			if (!ch || ch.type !== ChannelType.GuildText) continue;
+
+			const chName = ch.name.toLowerCase();
+
+			if (chName === rawId || chName === sanitizedId || chName.replace(/_/g, '-') === sanitizedId) {
+				return ch;
+			}
+
+			if (shortCode && shortCode.length >= 3 && chName.endsWith(shortCode)) {
+				return ch;
+			}
+		}
+	} catch (e) {
+		console.error('Error finding ticket channel for order:', e);
+	}
+
+	return null;
+}
+
 async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '', adminUser = null, originalMessage = null, interactionToReply = null) {
 	await updatePurchaseStatus(orderId, 'fulfilled');
 	updateGlobalPanel(clientInstance);
@@ -293,17 +333,24 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 		} catch (e) {}
 	}
 
-	const targetChannelName = orderId.toLowerCase();
 	try {
-		let targetGuild = clientInstance.guilds.cache.first();
+		let targetGuild = (originalMessage && originalMessage.guild) || 
+		                  (interactionToReply && interactionToReply.guild) || 
+		                  clientInstance.guilds.cache.first();
+
 		if (targetGuild) {
-			const channels = await targetGuild.channels.fetch();
-			const ticketChannel = channels.find(c => c && c.name === targetChannelName);
+			const ticketChannel = await findTicketChannelForOrder(targetGuild, orderId);
 			if (ticketChannel) {
 				let buyerMention = '';
 				if (originalMessage && originalMessage.embeds.length > 0) {
 					const buyerField = originalMessage.embeds[0].fields?.find(f => f.name.includes('PEMBELI'));
 					if (buyerField) buyerMention = buyerField.value;
+				}
+				if (!buyerMention) {
+					const ownerData = await getTicketOwnerData(targetGuild, ticketChannel, orderId);
+					if (ownerData && ownerData.userId && ownerData.userId !== 'Unknown') {
+						buyerMention = `<@${ownerData.userId}>`;
+					}
 				}
 
 				const notesText = notes ? `📝 **Catatan Admin:** ${notes}\n\n` : '';
