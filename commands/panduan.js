@@ -5,21 +5,20 @@ function buildPanduanEmbed(category = 'semua') {
 
 	if (catKey === 'robux') {
 		return new EmbedBuilder()
-			.setTitle('💎 PANDUAN TRANSAKSI: ROBUX VIA USERNAME')
-			.setColor(0x3498DB)
+			.setTitle('💎  PANDUAN TRANSAKSI: ROBUX VIA USERNAME')
+			.setColor(0x00CEC9)
 			.setDescription(
-				`📌 **METODE TRANSAKSI ROBUX:**\n` +
-				`Transaksi Robux di Bebey Store dilakukan via **Gamepass** atau **Group Payout** resmi Roblox.\n\n` +
-				`1️⃣ **Selesaikan Pembayaran QRIS**:\n` +
-				`   • Pilih paket Robux di menu toko & lakukan pembayaran QRIS sesuai nominal presisi.\n` +
-				`   • Upload foto bukti transfer yang jelas di channel tiket.\n\n` +
-				`2️⃣ **Metode Pengiriman**:\n` +
-				`   • **Via Gamepass**: Buat Gamepass di game Roblox milik kamu dengan harga Robux yang sesuai (sesuaikan pajak Roblox 30% jika ada).\n` +
-				`   • **Via Group Payout**: Join Group Roblox Bebey Store yang diberikan Admin.\n\n` +
-				`3️⃣ **Estimasi Pending Roblox**:\n` +
-				`   • Pembelian Robux via Gamepass memerlukan waktu pending **5 - 7 Hari** sesuai kebijakan resmi sistem Roblox.\n` +
-				`   • Kamu bisa mengecek status Robux pending di: \`https://www.roblox.com/my/money\`\n\n` +
-				`💬 *Jika ada pertanyaan seputar limit atau setting Gamepass, silakan tanyakan ke Admin di tiket!*`
+				`Prosedur pengisian Robux resmi via **Gamepass** atau **Group Payout**:\n\n` +
+				`1️⃣ **Pembayaran & Verifikasi**\n` +
+				`   └ Pilih nominal Robux pada katalog toko\n` +
+				`   └ Selesaikan pembayaran QRIS dan unggah foto bukti transfer di tiket\n\n` +
+				`2️⃣ **Metode Pengiriman**\n` +
+				`   └ **Via Gamepass**: Buat Gamepass pada game Roblox kamu sesuai nominal Robux (harga disesuaikan potongan 30% dari Roblox)\n` +
+				`   └ **Via Group**: Join ke Group Roblox Bebey Store yang diberikan Admin\n\n` +
+				`3️⃣ **Waktu Pending Roblox**\n` +
+				`   └ Pembelian via Gamepass memerlukan proses holding **5 hingga 7 hari** dari pihak Roblox\n` +
+				`   └ Cek status Robux pending kamu di: \`https://www.roblox.com/my/money\`\n\n` +
+				`💡 *Jika membutuhkan bantuan pembuatan Gamepass, silakan tanyakan ke Admin di tiket ini.*`
 			)
 			.setTimestamp()
 			.setFooter({ text: '💖 Bebey Store Official • Panduan Robux' });
@@ -27,21 +26,21 @@ function buildPanduanEmbed(category = 'semua') {
 
 	if (catKey === 'fishit_item') {
 		return new EmbedBuilder()
-			.setTitle('🗡️ PANDUAN TRANSAKSI: ITEM, SKIN & PET FISH IT')
+			.setTitle('🗡️  PANDUAN TRANSAKSI: ITEM, SKIN & PET FISH IT')
 			.setColor(0xE74C3C)
 			.setDescription(
-				`📌 **METODE TRANSAKSI ITEM / SKIN / PET:**\n` +
-				`Transaksi dilakukan via **Private World Toko** atau **Trade In-Game** dengan Admin.\n\n` +
-				`1️⃣ **Pembayaran QRIS**:\n` +
-				`   • Transfer QRIS sesuai kartu transaksi dan upload bukti foto transfer.\n\n` +
-				`2️⃣ **Terima Link Private World / Add Akun**:\n` +
-				`   • Setelah Admin meng-approve pembayaran, bot akan otomatis mengirimkan **Link Private World Toko** atau **Username Roblox Admin**.\n\n` +
-				`3️⃣ **Masuk Ke Game & Trade**:\n` +
-				`   • Klik tombol **"🌐 Masuk Private World"** di tiket untuk langsung membuka game Roblox.\n` +
-				`   • Temui Admin di dalam game & lakukan proses Trade/Give item pesanan kamu.\n\n` +
-				`4️⃣ **Konfirmasi Selesai**:\n` +
-				`   • Admin akan mengunggah foto bukti pengiriman di tiket.\n` +
-				`   • Klik tombol **"✅ Selesai (Item Sudah Diterima)"** di tiket!`
+				`Prosedur pengambilan item, skin, perahu, atau pet Fish It via **Private World / Trade**:\n\n` +
+				`1️⃣ **Pembayaran QRIS**\n` +
+				`   └ Lakukan pembayaran sesuai nominal presisi pada kartu transaksi\n` +
+				`   └ Unggah foto screenshot bukti transfer di tiket\n\n` +
+				`2️⃣ **Menerima Akses Server**\n` +
+				`   └ Setelah Admin meng-approve pembayaran, bot akan mengirimkan link Private World atau Username Roblox Admin di tiket ini\n\n` +
+				`3️⃣ **Masuk Game & Trade**\n` +
+				`   └ Klik tombol **"Masuk Private World"** untuk langsung membuka aplikasi Roblox\n` +
+				`   └ Temui Admin di dalam server untuk menerima item/skin/pet pesanan kamu\n\n` +
+				`4️⃣ **Penyelesaian**\n` +
+				`   └ Admin mengunggah bukti pengiriman item di tiket\n` +
+				`   └ Klik tombol **"Selesai (Item Sudah Diterima)"** untuk menutup tiket`
 			)
 			.setTimestamp()
 			.setFooter({ text: '💖 Bebey Store Official • Panduan Item & Skin' });
@@ -49,18 +48,19 @@ function buildPanduanEmbed(category = 'semua') {
 
 	if (catKey === 'fishit_gp') {
 		return new EmbedBuilder()
-			.setTitle('🎟️ PANDUAN TRANSAKSI: GAMEPASS & TOKEN FISH IT')
+			.setTitle('🎟️  PANDUAN TRANSAKSI: GAMEPASS & TOKEN FISH IT')
 			.setColor(0xF1C40F)
 			.setDescription(
-				`📌 **METODE TRANSAKSI GAMEPASS & TOKEN:**\n` +
-				`Dikirim via **Gift Gamepass In-Game** atau **Direct Top Up Token** ke Username Roblox kamu.\n\n` +
-				`1️⃣ **Pembayaran & Username**:\n` +
-				`   • Bayar QRIS sesuai nominal presisi & berikan **Username Roblox** kamu ke Admin.\n\n` +
-				`2️⃣ **Proses Pengiriman Admin**:\n` +
-				`   • Admin akan mengirimkan Gift Gamepass / Token secara langsung ke akun kamu.\n\n` +
-				`3️⃣ **Cek Inventaris**:\n` +
-				`   • Buka game Fish It dan periksa apakah Gamepass / Token sudah masuk ke akun kamu.\n` +
-				`   • Klik tombol **"✅ Selesai"** di tiket jika item sudah masuk!`
+				`Prosedur pengisian Gamepass atau Token in-game Fish It:\n\n` +
+				`1️⃣ **Selesaikan Pembayaran**\n` +
+				`   └ Transfer QRIS sesuai nominal dan kirimkan bukti transfer di tiket\n\n` +
+				`2️⃣ **Kirim Username Roblox**\n` +
+				`   └ Berikan **Roblox Username** kamu yang aktif kepada Admin\n\n` +
+				`3️⃣ **Proses Inject & Gift**\n` +
+				`   └ Admin akan mengirimkan Gift Gamepass atau Token langsung ke akun kamu di dalam game\n\n` +
+				`4️⃣ **Konfirmasi**\n` +
+				`   └ Buka game Fish It dan periksa inventaris akun kamu\n` +
+				`   └ Tekan tombol **"Selesai"** di tiket jika item sudah masuk dengan benar`
 			)
 			.setTimestamp()
 			.setFooter({ text: '💖 Bebey Store Official • Panduan Gamepass & Token' });
@@ -68,20 +68,19 @@ function buildPanduanEmbed(category = 'semua') {
 
 	if (catKey === 'fishit_akun') {
 		return new EmbedBuilder()
-			.setTitle('👤 PANDUAN TRANSAKSI: AKUN FISH IT (AKUN ROBLOX)')
+			.setTitle('👤  PANDUAN TRANSAKSI: AKUN FISH IT (AKUN ROBLOX)')
 			.setColor(0x9B59B6)
 			.setDescription(
-				`📌 **METODE TRANSAKSI AKUN FISH IT:**\n` +
-				`Penyerahan data login lengkap (Username & Password akun Roblox).\n\n` +
-				`1️⃣ **Cek Spesifikasi Akun**:\n` +
-				`   • Detail spesifikasi & review skin akun bisa dilihat pada channel <#1538945046106079402>.\n\n` +
-				`2️⃣ **Selesaikan Pembayaran**:\n` +
-				`   • Transfer QRIS dan upload foto bukti pembayaran di tiket.\n\n` +
-				`3️⃣ **Terima Data Login**:\n` +
-				`   • Admin akan memberikan **Username & Password** akun Roblox secara aman di channel tiket ini.\n\n` +
-				`4️⃣ **Amankan Akun Segera**:\n` +
-				`   • Segera login ke akun Roblox tersebut di website \`roblox.com\`.\n` +
-				`   • Ganti Password & tautkan Email / Nomor HP / Authenticator milik kamu sendiri!`
+				`Prosedur serah terima Akun Roblox (Diamond, Withering, dll):\n\n` +
+				`1️⃣ **Cek Spesifikasi**\n` +
+				`   └ Lihat foto detail skin & spesifikasi akun di channel <#1538945046106079402>\n\n` +
+				`2️⃣ **Pembayaran & Verifikasi**\n` +
+				`   └ Selesaikan pembayaran QRIS dan unggah bukti transfer di tiket\n\n` +
+				`3️⃣ **Penyerahan Data Login**\n` +
+				`   └ Admin akan memberikan **Username & Password** akun Roblox di channel tiket ini\n\n` +
+				`4️⃣ **Pengamanan Akun (Wajib)**\n` +
+				`   └ Login ke website \`roblox.com\` menggunakan data yang diberikan\n` +
+				`   └ Segera ganti Password dan hubungkan Email / Authenticator milik kamu sendiri`
 			)
 			.setTimestamp()
 			.setFooter({ text: '💖 Bebey Store Official • Panduan Akun Roblox' });
@@ -89,20 +88,19 @@ function buildPanduanEmbed(category = 'semua') {
 
 	if (catKey === 'joki') {
 		return new EmbedBuilder()
-			.setTitle('⚡ PANDUAN TRANSAKSI: JOKI FISH IT & PTPT')
+			.setTitle('⚡  PANDUAN TRANSAKSI: JOKI FISH IT & PTPT')
 			.setColor(0x1ABC9C)
 			.setDescription(
-				`📌 **METODE TRANSAKSI JOKI & PTPT:**\n` +
-				`Layanan pengerjaan rod, quest, full index, atau AFK mancing oleh tim joki profesional Bebey Store.\n\n` +
-				`1️⃣ **Pembayaran & Format Data**:\n` +
-				`   • Transfer QRIS sesuai harga paket joki yang dipilih.\n` +
-				`   • Kirimkan data login Roblox (Username & Password) di channel tiket ini.\n\n` +
-				`2️⃣ **Proses Pengerjaan**:\n` +
-				`   • Joki akan menolak/meminta kode 2FA jika akun terlindungi.\n` +
-				`   • Dilarang menabrak / login ke akun selama proses joki berlangsung agar pengerjaan tidak terganggu.\n\n` +
-				`3️⃣ **Selesai Joki**:\n` +
-				`   • Admin akan memberikan notifikasi & foto bukti saat joki selesai.\n` +
-				`   • Kamu dapat login kembali dan mengganti password demi keamanan.`
+				`Prosedur pengerjaan Joki Rod/Quest/Index atau PTPT AFK Mancing:\n\n` +
+				`1️⃣ **Pembayaran & Data Akun**\n` +
+				`   └ Transfer QRIS sesuai tarif layanan joki/PTPT\n` +
+				`   └ Kirimkan Username & Password akun Roblox kamu ke Admin di tiket\n\n` +
+				`2️⃣ **Proses Pengerjaan**\n` +
+				`   └ Berikan kode 2FA / Verifikasi ke Admin jika akun terlindungi\n` +
+				`   └ **Dilarang menabrak (login)** ke akun selama joki berlangsung agar pengerjaan lancar\n\n` +
+				`3️⃣ **Serah Terima**\n` +
+				`   └ Admin memberikan foto bukti hasil pengerjaan joki di tiket\n` +
+				`   └ Kamu dapat login kembali dan mengganti password akun`
 			)
 			.setTimestamp()
 			.setFooter({ text: '💖 Bebey Store Official • Panduan Joki & PTPT' });
@@ -110,22 +108,32 @@ function buildPanduanEmbed(category = 'semua') {
 
 	// Default: SEMUA PANDUAN LENGKAP
 	return new EmbedBuilder()
-		.setTitle('📚 PANDUAN TRANSAKSI & CARA PEMBAYARAN BEBEY STORE')
-		.setColor(0x2ECC71)
+		.setTitle('📖  PANDUAN TRANSAKSI & PEMBAYARAN BEBEY STORE')
+		.setColor(0x3498DB)
 		.setDescription(
-			`Halo Kak! Selamat datang di **Bebey Store**! 💖\n` +
-			`Berikut adalah panduan lengkap cara pembayaran & transaksi untuk setiap kategori item toko kami:\n\n` +
-			`💎 **1. ROBUX VIA USERNAME (GAMEPASS / PAYOUT)**\n` +
-			`• Pembayaran QRIS ➡️ Kirim Username ➡️ Admin kirim via Gamepass/Group (Pending Robux 5-7 hari).\n\n` +
-			`🗡️ **2. ITEM, SKIN & PET FISH IT**\n` +
-			`• Pembayaran QRIS ➡️ Masuk **Private World Toko** ➡️ Trade/Give item dengan Admin di game.\n\n` +
-			`🎟️ **3. GAMEPASS & TOKEN FISH IT**\n` +
-			`• Pembayaran QRIS ➡️ Berikan Username Roblox ➡️ Gift Gamepass / Token dikirim langsung ke akun.\n\n` +
-			`👤 **4. AKUN FISH IT (AKUN ROBLOX)**\n` +
-			`• Cek spesifikasi akun di <#1538945046106079402> ➡️ Bayar QRIS ➡️ Admin berikan Username & Password akun di tiket ➡️ Amankan akun.\n\n` +
-			`⚡ **5. JOKI FISH IT & PTPT**\n` +
-			`• Bayar QRIS ➡️ Berikan data login ke Admin ➡️ Proses Joki / AFK ➡️ Selesai & Amankan akun.\n\n` +
-			`👇 *Gunakan menu di bawah untuk melihat panduan detail per kategori:*`
+			`Selamat datang di **Bebey Store**! 🌟\n` +
+			`Berikut adalah ringkasan panduan transaksi resmi untuk setiap jenis produk di toko kami:\n\n` +
+			`🔹 **Robux Via Username (Gamepass / Group)**\n` +
+			`   1. Pilih nominal & bayar via QRIS\n` +
+			`   2. Berikan Roblox Username / buat Gamepass di game kamu\n` +
+			`   3. Robux via Gamepass memerlukan waktu pending 5–7 hari dari Roblox\n\n` +
+			`🔹 **Item, Skin & Pet Fish It**\n` +
+			`   1. Transfer QRIS & kirim bukti pembayaran di tiket\n` +
+			`   2. Dapatkan link Private World / Add Akun Roblox Admin\n` +
+			`   3. Masuk ke server & lakukan Trade/Give item in-game\n\n` +
+			`🔹 **Gamepass & Token Fish It**\n` +
+			`   1. Selesaikan pembayaran QRIS\n` +
+			`   2. Kirim Username Roblox kamu\n` +
+			`   3. Admin akan mengirimkan Gift Gamepass atau Token secara langsung\n\n` +
+			`🔹 **Akun Fish It (Akun Roblox)**\n` +
+			`   1. Cek review & spesifikasi di <#1538945046106079402>\n` +
+			`   2. Bayar QRIS & konfirmasi di tiket\n` +
+			`   3. Terima Username & Password dari Admin, lalu segera amankan akun\n\n` +
+			`🔹 **Joki Fish It & PTPT**\n` +
+			`   1. Bayar QRIS & berikan data login ke Admin secara aman\n` +
+			`   2. Tim joki memproses pesanan di game (dilarang menabrak akun)\n` +
+			`   3. Terima laporan joki selesai & ganti password akun\n\n` +
+			`👇 *Gunakan menu dropdown di bawah untuk membaca panduan lengkap tiap kategori:*`
 		)
 		.setTimestamp()
 		.setFooter({ text: '💖 Bebey Store Official • Pusat Panduan Transaksi' });
