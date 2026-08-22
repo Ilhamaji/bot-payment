@@ -543,9 +543,8 @@ async function handleBuyerInteraction(interaction, client) {
 
 			await sendTicketLogEmbed(interaction.guild, {
 				orderId: orderId || (ticketChan ? ticketChan.name : 'N/A'),
-				openedBy: openedBy || (ticketChan ? ticketChan.topic?.match(/<@!?(\d+)>/)?.[1] : null) || 'Unknown',
+				channel: ticketChan,
 				closedBy: interaction.user,
-				openTime: openTime,
 				claimedBy: null,
 				reason: reason
 			});

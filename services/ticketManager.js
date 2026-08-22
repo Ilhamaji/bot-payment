@@ -21,6 +21,67 @@ const qrisMessages = new Map();
 const pendingAdminDeliveryProof = new Map();
 const adminInstructionInteractions = new Map();
 const submittedProofOrders = new Set();
+const ticketOwnerMap = new Map();
+
+function saveTicketOwner(channelId, orderId, userId, openTime) {
+	if (channelId) {
+		ticketOwnerMap.set(channelId, { userId, orderId, openTime: openTime || Date.now() });
+	}
+	if (orderId) {
+		ticketOwnerMap.set(orderId.toUpperCase(), { userId, orderId, openTime: openTime || Date.now() });
+	}
+}
+
+async function getTicketOwnerData(guild, channel, orderId) {
+	const cleanId = orderId ? orderId.toUpperCase() : (channel ? channel.name.toUpperCase() : '');
+
+	if (channel && ticketOwnerMap.has(channel.id)) {
+		return ticketOwnerMap.get(channel.id);
+	}
+	if (cleanId && ticketOwnerMap.has(cleanId)) {
+		return ticketOwnerMap.get(cleanId);
+	}
+
+	const cart = activeCarts.get(cleanId);
+	if (cart && cart.userId) {
+		return { userId: cart.userId, orderId: cleanId, openTime: cart.createdTimestamp };
+	}
+
+	if (cleanId) {
+		try {
+			const { getPurchaseById } = require('./supabase');
+			const purchase = await getPurchaseById(cleanId);
+			if (purchase && (purchase.discord_id || purchase.discord_username)) {
+				return {
+					userId: purchase.discord_id || purchase.discord_username,
+					orderId: cleanId,
+					openTime: purchase.created_at ? new Date(purchase.created_at).getTime() : (channel ? channel.createdTimestamp : Date.now())
+				};
+			}
+		} catch (e) {}
+	}
+
+	if (channel && channel.permissionOverwrites) {
+		try {
+			const userOverwrite = channel.permissionOverwrites.cache.find(po => 
+				po.type === 1 && 
+				po.id !== guild.client.user.id && 
+				!guild.roles.cache.has(po.id)
+			);
+			if (userOverwrite) {
+				return { userId: userOverwrite.id, orderId: cleanId, openTime: channel ? channel.createdTimestamp : Date.now() };
+			}
+		} catch (e) {}
+	}
+
+	let userId = 'Unknown';
+	if (channel && channel.topic) {
+		const match = channel.topic.match(/<@!?(\d+)>/) || channel.topic.match(/(\d{17,19})/);
+		if (match) userId = match[1];
+	}
+
+	return { userId, orderId: cleanId, openTime: channel ? channel.createdTimestamp : Date.now() };
+}
 
 function markProofSubmittedForOrder(orderId) {
 	if (!orderId) return;
@@ -585,6 +646,7 @@ async function createTicketChannel(interaction, selectedItem, robloxData = 'Tida
 		}
 
 		const ticketChannel = await interaction.guild.channels.create(channelData);
+		saveTicketOwner(ticketChannel.id, orderId, interaction.user.id, Date.now());
 
 		const channelUrl = `https://discord.com/channels/${interaction.guild.id}/${ticketChannel.id}`;
 		const openTicketBtn = new ButtonBuilder()
@@ -864,24 +926,28 @@ async function getOrCreateTicketLogChannel(guild) {
 	}
 }
 
-async function sendTicketLogEmbed(guild, { orderId, openedBy, closedBy, openTime, claimedBy, reason }) {
+async function sendTicketLogEmbed(guild, { orderId, channel, openedBy, closedBy, openTime, claimedBy, reason }) {
 	try {
 		const logChannel = await getOrCreateTicketLogChannel(guild);
 		if (!logChannel) return;
 
+		const ownerData = await getTicketOwnerData(guild, channel, orderId);
+		const resolvedOpenedBy = openedBy || ownerData.userId;
+		const resolvedOpenTime = openTime || ownerData.openTime;
+
 		let openedByTag = 'Unknown';
-		if (openedBy) {
-			if (typeof openedBy === 'object' && openedBy.id) openedByTag = `<@${openedBy.id}>`;
-			else if (String(openedBy).startsWith('<@')) openedByTag = openedBy;
-			else if (/^\d+$/.test(String(openedBy))) openedByTag = `<@${openedBy}>`;
-			else openedByTag = openedBy;
+		if (resolvedOpenedBy && resolvedOpenedBy !== 'Unknown') {
+			if (typeof resolvedOpenedBy === 'object' && resolvedOpenedBy.id) openedByTag = `<@${resolvedOpenedBy.id}>`;
+			else if (String(resolvedOpenedBy).startsWith('<@')) openedByTag = resolvedOpenedBy;
+			else if (/^\d{17,19}$/.test(String(resolvedOpenedBy))) openedByTag = `<@${resolvedOpenedBy}>`;
+			else openedByTag = resolvedOpenedBy;
 		}
 
 		let closedByTag = 'System';
 		if (closedBy) {
 			if (typeof closedBy === 'object' && closedBy.id) closedByTag = `<@${closedBy.id}>`;
 			else if (String(closedBy).startsWith('<@')) closedByTag = closedBy;
-			else if (/^\d+$/.test(String(closedBy))) closedByTag = `<@${closedBy}>`;
+			else if (/^\d{17,19}$/.test(String(closedBy))) closedByTag = `<@${closedBy}>`;
 			else closedByTag = closedBy;
 		}
 
@@ -889,19 +955,28 @@ async function sendTicketLogEmbed(guild, { orderId, openedBy, closedBy, openTime
 		if (claimedBy) {
 			if (typeof claimedBy === 'object' && claimedBy.id) claimedByStr = `<@${claimedBy.id}>`;
 			else if (String(claimedBy).startsWith('<@')) claimedByStr = claimedBy;
-			else if (/^\d+$/.test(String(claimedBy))) claimedByStr = `<@${claimedBy}>`;
+			else if (/^\d{17,19}$/.test(String(claimedBy))) claimedByStr = `<@${claimedBy}>`;
 			else claimedByStr = claimedBy;
 		}
 
 		let formatOpenTime = 'N/A';
-		if (openTime) {
-			const timeMs = typeof openTime === 'number' ? openTime : new Date(openTime).getTime();
+		if (resolvedOpenTime) {
+			const timeMs = typeof resolvedOpenTime === 'number' ? resolvedOpenTime : new Date(resolvedOpenTime).getTime();
 			if (!isNaN(timeMs)) {
 				formatOpenTime = `<t:${Math.floor(timeMs / 1000)}:f>`;
 			}
 		}
 
-		const cleanOrderId = orderId ? orderId.replace(/^TICKET-/, '').replace(/^BB-/, '') : 'N/A';
+		let cleanOrderId = 'N/A';
+		if (orderId) {
+			const rawStr = String(orderId).trim();
+			if (rawStr.includes('-')) {
+				const parts = rawStr.split('-');
+				cleanOrderId = parts[parts.length - 1].toUpperCase();
+			} else {
+				cleanOrderId = rawStr;
+			}
+		}
 
 		const logEmbed = new EmbedBuilder()
 			.setTitle('Ticket Closed')
