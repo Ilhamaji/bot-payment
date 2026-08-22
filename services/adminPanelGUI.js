@@ -754,10 +754,18 @@ async function handleAdminPanelInteraction(interaction, client) {
 				return interaction.editReply({ content: '⚠️ Belum ada data transaksi terverifikasi (fulfilled) di database toko.' });
 			}
 
+			try {
+				await interaction.channel.send({
+					content: `📊 **LAPORAN EXCEL REKAPITULASI PENJUALAN (ALL-TIME)**`,
+					embeds: [result.embed],
+					files: [result.attachment]
+				});
+			} catch (e) {
+				console.error('Error sending non-ephemeral report attachment:', e);
+			}
+
 			return interaction.editReply({
-				content: `✅ **Laporan Excel Seluruh Data Penjualan (All-Time) Berhasil Dibuat!**`,
-				embeds: [result.embed],
-				files: [result.attachment]
+				content: `✅ **Laporan Excel Seluruh Data Penjualan (All-Time) Berhasil Dikirimkan ke Channel Ini!**\n> *Silakan klik dan unduh file \`.xlsx\` pada pesan di atas.*`
 			});
 		}
 
