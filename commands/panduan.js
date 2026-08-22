@@ -205,10 +205,16 @@ module.exports = {
 		const embed = buildPanduanEmbed(chosenCat);
 		const selectRow = buildPanduanSelectMenu(chosenCat);
 
-		await interaction.reply({
-			embeds: [embed],
-			components: [selectRow]
-		});
+		try {
+			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+			await interaction.channel.send({
+				embeds: [embed],
+				components: [selectRow]
+			});
+			await interaction.deleteReply();
+		} catch (e) {
+			console.error('Error sending panduan channel message:', e);
+		}
 	},
 
 	buildPanduanEmbed,
