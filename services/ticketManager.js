@@ -252,6 +252,38 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 
 				const notesText = notes ? `📝 **Catatan Admin:** ${notes}\n\n` : '';
 
+				let activePsUrl = null;
+				const cart = getCart(cleanOrderId);
+				if (cart && cart.items) {
+					const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('./panelManager');
+					const globalPsUrl = getGlobalPrivateServerUrl();
+					for (const item of cart.items) {
+						const isCatPsAllowed = isCategoryPrivateServerAllowed(item.category || 'General');
+						if (isCatPsAllowed && globalPsUrl && globalPsUrl.trim() !== '') {
+							activePsUrl = globalPsUrl.trim();
+							break;
+						} else if (item.privateServerUrl && item.privateServerUrl.trim() !== '') {
+							activePsUrl = item.privateServerUrl.trim();
+							break;
+						}
+					}
+				}
+
+				let psGuideSection = '';
+				let btnPs = null;
+				if (activePsUrl) {
+					psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
+						`[🌐 Klik Untuk Masuk Private World Toko](${activePsUrl})\n` +
+						`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
+
+					try {
+						btnPs = new ButtonBuilder()
+							.setLabel('🌐 Masuk Private World')
+							.setStyle(ButtonStyle.Link)
+							.setURL(activePsUrl);
+					} catch (e) {}
+				}
+
 				const approvedEmbed = new EmbedBuilder()
 					.setTitle('✅  BEBEY STORE — PEMBAYARAN DI-APPROVE!')
 					.setColor(0x2ECC71)
@@ -259,7 +291,8 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 						`Hore ${buyerMention}! 🎉 Pembayaran kamu untuk order \`${orderId}\` **sudah diterima & item telah dikirim oleh Admin**.\n\n` +
 						notesText +
 						`📸 **Foto Bukti Pengiriman Admin:**\n` +
-						`(Foto screenshot pengiriman dari Admin bisa kamu lihat pada gambar di bawah ini)\n\n` +
+						`(Foto screenshot pengiriman dari Admin bisa kamu lihat pada gambar di bawah ini)` +
+						psGuideSection + `\n\n` +
 						`⚠️ **PENTING:**\n` +
 						`Silakan cek akun Roblox kamu dulu. Klik tombol **Selesai** di bawah KALAU item sudah benar-benar masuk ya!`
 					)
@@ -280,7 +313,9 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 					.setLabel('📩 Simpan Bukti ke DM')
 					.setStyle(ButtonStyle.Primary);
 
-				const finishRow = new ActionRowBuilder().addComponents(finishTicketBtn, saveDmBtn);
+				const finishRow = new ActionRowBuilder();
+				if (btnPs) finishRow.addComponents(btnPs);
+				finishRow.addComponents(finishTicketBtn, saveDmBtn);
 
 				// Cek apakah pesan approve sudah pernah dikirim di channel tiket ini (untuk fitur ganti bukti pengiriman)
 				const ticketMsgs = await ticketChannel.messages.fetch({ limit: 50 });
@@ -518,7 +553,6 @@ function buildCartEmbedAndComponents(orderId) {
 		userLine +
 		`📦 **DAFTAR PRODUK PESANAN:**\n` +
 		itemsListStr +
-		psLine +
 		`🆔 **Order ID:** \`${cart.orderId}\`\n` +
 		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**` +
 		accountNoteLine;
@@ -541,7 +575,6 @@ function buildCartEmbedAndComponents(orderId) {
 		.setStyle(ButtonStyle.Secondary);
 
 	const row = new ActionRowBuilder();
-	if (btnPs) row.addComponents(btnPs);
 	row.addComponents(btnSos, btnClose);
 
 	return { embeds: [cartEmbed], components: [row] };
