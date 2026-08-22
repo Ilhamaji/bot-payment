@@ -117,46 +117,50 @@ function removeItemFromDraftCart(userId, itemId, reduceQty = 1) {
 }
 
 async function sendPsGuideEmbedIfNeeded(interaction, orderId) {
-	delete require.cache[require.resolve('../config/items')];
-	const catalogItems = require('../config/items');
-	const purchase = await getPurchaseById(orderId);
+	try {
+		delete require.cache[require.resolve('../config/items')];
+		const catalogItems = require('../config/items');
+		const purchase = await getPurchaseById(orderId);
 
-	let selectedItem = null;
-	if (purchase) {
-		selectedItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
-	}
+		let selectedItem = null;
+		if (purchase) {
+			selectedItem = catalogItems.find(i => i.name && i.name.toLowerCase() === purchase.item_name.toLowerCase());
+		}
 
-	const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('../services/panelManager');
-	const globalPsUrl = getGlobalPrivateServerUrl();
-	const isPsEnabled = selectedItem ? isCategoryPrivateServerAllowed(selectedItem.category || 'General') : false;
-	const activePsUrl = (isPsEnabled && globalPsUrl && globalPsUrl.trim() !== '') 
-		? globalPsUrl.trim() 
-		: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
+		const { getGlobalPrivateServerUrl, isCategoryPrivateServerAllowed } = require('../services/panelManager');
+		const globalPsUrl = getGlobalPrivateServerUrl();
+		const isPsEnabled = selectedItem ? isCategoryPrivateServerAllowed(selectedItem.category || 'General') : false;
+		const activePsUrl = (isPsEnabled && globalPsUrl && globalPsUrl.trim() !== '') 
+			? globalPsUrl.trim() 
+			: (selectedItem && selectedItem.privateServerUrl ? selectedItem.privateServerUrl.trim() : '');
 
-	if (activePsUrl && activePsUrl !== '') {
-		const psGuideEmbed = new EmbedBuilder()
-			.setTitle('🌐  PANDUAN TRANSAKSI PRIVATE WORLD / SERVER')
-			.setColor(0x9B59B6)
-			.setDescription(
-				`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
-				`1️⃣ **Bayar QRIS**: Lakukan pembayaran QRIS sesuai nominal pada kartu di bawah ini & upload bukti transfer.\n` +
-				`2️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
-				`3️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
-				`4️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
-				`5️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
-				`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
-			)
-			.setTimestamp()
-			.setFooter({ text: `💖 Bebey Store Official • ${orderId}` });
+		if (activePsUrl && activePsUrl !== '' && (activePsUrl.startsWith('http://') || activePsUrl.startsWith('https://'))) {
+			const psGuideEmbed = new EmbedBuilder()
+				.setTitle('🌐  PANDUAN TRANSAKSI PRIVATE WORLD / SERVER')
+				.setColor(0x9B59B6)
+				.setDescription(
+					`🎮 **CARA BERTRANSAKSI MENGGUNAKAN PRIVATE WORLD TOKO:**\n\n` +
+					`1️⃣ **Bayar QRIS**: Lakukan pembayaran QRIS sesuai nominal pada kartu di bawah ini & upload bukti transfer.\n` +
+					`2️⃣ **Masuk Ke Server**: Klik tombol **"🌐 Masuk Private World"** di bawah ini.\n` +
+					`3️⃣ **Otomatis Ke Game**: Aplikasi Roblox kamu akan langsung membuka Private Server resmi Bebey Store.\n` +
+					`4️⃣ **Temu Admin / Trade**: Temui Admin di dalam server atau lakukan proses Trade/Give item sesuai pesanan kamu.\n` +
+					`5️⃣ **Selesai**: Setelah transaksi di game selesai, Admin akan memverifikasi dan mengirimkan bukti pengiriman di tiket ini.\n\n` +
+					`🔗 **Link Direct Private Server:**\n[🚀 Klik Di Sini Untuk Masuk Ke Private World](${activePsUrl})`
+				)
+				.setTimestamp()
+				.setFooter({ text: `💖 Bebey Store Official • ${orderId}` });
 
-		const psGuideBtn = new ButtonBuilder()
-			.setLabel('🌐 Masuk Private World')
-			.setStyle(ButtonStyle.Link)
-			.setURL(activePsUrl);
+			const psGuideBtn = new ButtonBuilder()
+				.setLabel('🌐 Masuk Private World')
+				.setStyle(ButtonStyle.Link)
+				.setURL(activePsUrl);
 
-		const psGuideRow = new ActionRowBuilder().addComponents(psGuideBtn);
+			const psGuideRow = new ActionRowBuilder().addComponents(psGuideBtn);
 
-		await interaction.channel.send({ embeds: [psGuideEmbed], components: [psGuideRow] });
+			await interaction.channel.send({ embeds: [psGuideEmbed], components: [psGuideRow] });
+		}
+	} catch (e) {
+		console.error('Error in sendPsGuideEmbedIfNeeded:', e);
 	}
 }
 
@@ -851,9 +855,6 @@ async function handleBuyerInteraction(interaction, client) {
 			}
 
 			if (!requireLimitCheck) {
-				// Kirim Panduan Private World terlebih dahulu (jika item memerlukan Private World)
-				await sendPsGuideEmbedIfNeeded(interaction, orderId);
-
 				const qrisData = buildQrisPaymentEmbedForCart(orderId);
 				let qrisMsg;
 				if (qrisData) {
@@ -984,9 +985,6 @@ async function handleBuyerInteraction(interaction, client) {
 				if (foundItem) selectedItem = foundItem;
 				else selectedItem = { name: purchase.item_name, emoji: '📦' };
 			}
-
-			// Kirim Panduan Private World terlebih dahulu (jika item memerlukan Private World)
-			await sendPsGuideEmbedIfNeeded(interaction, orderId);
 
 			const qrisData = buildQrisPaymentEmbedForCart(orderId);
 			let qrisMsg;
