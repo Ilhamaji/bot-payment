@@ -485,6 +485,17 @@ function buildCartEmbedAndComponents(orderId) {
 		} catch (e) {}
 	}
 
+	const hasAccountCategory = cart.items.some(i => {
+		const cat = (i.category || i.itemObj?.category || '').toLowerCase();
+		return cat.includes('akun');
+	});
+
+	let accountNoteLine = '';
+	if (hasAccountCategory) {
+		const reviewChannelId = process.env.REVIEW_SKIN_CHANNEL_ID ? process.env.REVIEW_SKIN_CHANNEL_ID.trim() : '1538945046106079402';
+		accountNoteLine = `\n\n📌 *Jika ingin melihat spesifikasi lebih lanjut: <#${reviewChannelId}>*`;
+	}
+
 	const cartDescription = 
 		`Halo <@${cart.userId}>! Berikut adalah **Detail Pesanan** kamu:\n\n` +
 		userLine +
@@ -492,7 +503,8 @@ function buildCartEmbedAndComponents(orderId) {
 		itemsListStr +
 		psLine +
 		`🆔 **Order ID:** \`${cart.orderId}\`\n` +
-		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**`;
+		`💰 **Subtotal Produk:** **Rp ${subtotalAll.toLocaleString('id-ID')}**` +
+		accountNoteLine;
 
 	const cartEmbed = new EmbedBuilder()
 		.setTitle(`🎫  BEBEY STORE — DETAIL PESANAN`)
