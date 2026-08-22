@@ -183,6 +183,62 @@ async function deleteTicketCreationMessage(orderId, channelId) {
 	}
 }
 
+function buildPrivateServerGuideSection(rawText) {
+	if (!rawText || rawText.trim() === '') return { guideSection: '', btnPs: null };
+
+	const text = rawText.trim();
+	const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+	let psUrl = null;
+	let accountName = null;
+
+	for (const line of lines) {
+		const urlMatch = line.match(/(https?:\/\/[^\s]+)/i);
+		if (urlMatch) {
+			if (!psUrl) psUrl = urlMatch[1];
+			const remainder = line.replace(urlMatch[1], '').replace(/^add akun:?\s*/i, '').replace(/[()]/g, '').trim();
+			if (remainder && !accountName) accountName = remainder;
+		} else {
+			const cleanName = line.replace(/^add akun:?\s*/i, '').trim();
+			if (cleanName && !accountName) accountName = cleanName;
+		}
+	}
+
+	let guideSection = '';
+	let btnPs = null;
+
+	if (psUrl && accountName) {
+		guideSection = `\n\n🌐 **PANDUAN PRIVATE WORLD & ADD AKUN TOKO:**\n` +
+			`[🌐 Klik Untuk Masuk Private World Toko](${psUrl})\n\n` +
+			`👤 **Add Akun Roblox:** \`${accountName}\`\n` +
+			`*Silakan masuk ke Private World Toko di atas atau add/follow akun Roblox admin untuk mengambil item pesanan kamu!*`;
+
+		try {
+			btnPs = new ButtonBuilder()
+				.setLabel('🌐 Masuk Private World')
+				.setStyle(ButtonStyle.Link)
+				.setURL(psUrl);
+		} catch (e) {}
+	} else if (psUrl) {
+		guideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
+			`[🌐 Klik Untuk Masuk Private World Toko](${psUrl})\n` +
+			`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
+
+		try {
+			btnPs = new ButtonBuilder()
+				.setLabel('🌐 Masuk Private World')
+				.setStyle(ButtonStyle.Link)
+				.setURL(psUrl);
+		} catch (e) {}
+	} else if (accountName) {
+		guideSection = `\n\n👤 **PANDUAN PENGAMBILAN ITEM (ADD AKUN ROBLOX):**\n` +
+			`👤 **Add Akun Roblox:** \`${accountName}\`\n` +
+			`*Silakan add / follow akun Roblox di atas untuk masuk ke server/world dan mengambil item pesanan kamu!*`;
+	}
+
+	return { guideSection, btnPs };
+}
+
 async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '', adminUser = null, originalMessage = null, interactionToReply = null) {
 	await updatePurchaseStatus(orderId, 'fulfilled');
 	updateGlobalPanel(clientInstance);
@@ -269,28 +325,7 @@ async function executeOrderApproval(clientInstance, orderId, proofUrl, notes = '
 					}
 				}
 
-				let psGuideSection = '';
-				let btnPs = null;
-				if (activePsUrl && activePsUrl.trim() !== '') {
-					const cleanPs = activePsUrl.trim();
-					if (cleanPs.startsWith('http://') || cleanPs.startsWith('https://')) {
-						psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
-							`[🌐 Klik Untuk Masuk Private World Toko](${cleanPs})\n` +
-							`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
-
-						try {
-							btnPs = new ButtonBuilder()
-								.setLabel('🌐 Masuk Private World')
-								.setStyle(ButtonStyle.Link)
-								.setURL(cleanPs);
-						} catch (e) {}
-					} else {
-						const cleanAccountName = cleanPs.replace(/^add akun:?\s*/i, '');
-						psGuideSection = `\n\n👤 **PANDUAN PENGAMBILAN ITEM (ADD AKUN ROBLOX):**\n` +
-							`👤 **Add Akun Roblox:** \`${cleanAccountName}\`\n` +
-							`*Silakan add / follow akun Roblox di atas untuk masuk ke server/world dan mengambil item pesanan kamu!*`;
-					}
-				}
+				const { guideSection: psGuideSection, btnPs } = buildPrivateServerGuideSection(activePsUrl);
 
 				const approvedEmbed = new EmbedBuilder()
 					.setTitle('✅  BEBEY STORE — PEMBAYARAN DI-APPROVE!')
@@ -1195,35 +1230,19 @@ async function refreshAllApprovedTicketsPrivateServer(clientInstance) {
 					activePsUrl = getGlobalPrivateServerUrl();
 				}
 
-				let psGuideSection = '';
-				let btnPs = null;
-
-				if (activePsUrl && activePsUrl.trim() !== '') {
-					const cleanPs = activePsUrl.trim();
-					if (cleanPs.startsWith('http://') || cleanPs.startsWith('https://')) {
-						psGuideSection = `\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO:**\n` +
-							`[🌐 Klik Untuk Masuk Private World Toko](${cleanPs})\n` +
-							`*Silakan masuk ke Private World Toko di atas untuk mengambil item pesanan kamu!*`;
-
-						try {
-							btnPs = new ButtonBuilder()
-								.setLabel('🌐 Masuk Private World')
-								.setStyle(ButtonStyle.Link)
-								.setURL(cleanPs);
-						} catch (e) {}
-					} else {
-						const cleanAccountName = cleanPs.replace(/^add akun:?\s*/i, '');
-						psGuideSection = `\n\n👤 **PANDUAN PENGAMBILAN ITEM (ADD AKUN ROBLOX):**\n` +
-							`👤 **Add Akun Roblox:** \`${cleanAccountName}\`\n` +
-							`*Silakan add / follow akun Roblox di atas untuk masuk ke server/world dan mengambil item pesanan kamu!*`;
-					}
-				}
+				const { guideSection: psGuideSection, btnPs } = buildPrivateServerGuideSection(activePsUrl);
 
 				const oldEmbed = approvedMsg.embeds[0];
 				let currentDesc = oldEmbed.description || '';
 
 				let cleanDesc = currentDesc;
-				if (cleanDesc.includes('\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO')) {
+				if (cleanDesc.includes('\n\n🌐 **PANDUAN PRIVATE WORLD & ADD AKUN TOKO')) {
+					const idx = cleanDesc.indexOf('\n\n🌐 **PANDUAN PRIVATE WORLD & ADD AKUN TOKO');
+					const endIdx = cleanDesc.indexOf('\n\n⚠️ **PENTING:**');
+					if (endIdx > idx) {
+						cleanDesc = cleanDesc.substring(0, idx) + cleanDesc.substring(endIdx);
+					}
+				} else if (cleanDesc.includes('\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO')) {
 					const idx = cleanDesc.indexOf('\n\n🌐 **PANDUAN & LINK PRIVATE WORLD TOKO');
 					const endIdx = cleanDesc.indexOf('\n\n⚠️ **PENTING:**');
 					if (endIdx > idx) {
